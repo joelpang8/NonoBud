@@ -9,6 +9,7 @@
     "resolveJsonModule": true,
     "isolatedModules": true,
     "skipLibCheck": true,
+    "noEmit": true,
     "types": ["node"]
   },
   "include": ["vite.config.ts", "scripts/**/*.ts"]
