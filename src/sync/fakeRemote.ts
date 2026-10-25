@@ -16,6 +16,14 @@ export class FakeServer {
   cells = new Map<string, Map<number, ServerCell>>();
   solves = new Map<string, SolvedRecord>();
   calls = 0;
+  /** Called after rows change, like database replication feeding Supabase Realtime. */
+  onCells?: (puzzleId: string, round: number, cells: RemoteCell[]) => void;
+  onBoard?: (meta: BoardMeta) => void;
+
+  changedBoard(puzzleId: string): void {
+    const b = this.boards.get(puzzleId);
+    if (b) this.onBoard?.(structuredClone(b));
+  }
 
   client(player: Player): FakeClient {
     return new FakeClient(this, player);
@@ -77,12 +85,19 @@ export class FakeClient implements Remote {
       }
       if (b.round !== op.round) return b.round;
       const cells = s.cells.get(op.puzzleId)!;
+      const changed: RemoteCell[] = [];
       for (const m of op.moves) {
         const cur = cells.get(m.i);
         if (!cur || m.v > cur.ver || (m.v === cur.ver && this.player > cur.writer)) {
           cells.set(m.i, { idx: m.i, state: m.s, owner: m.o, ver: m.v, writer: this.player });
+          changed.push({ idx: m.i, state: m.s, owner: m.o, ver: m.v });
         }
       }
+      const round = b.round;
+      queueMicrotask(() => {
+        if (changed.length) s.onCells?.(op.puzzleId, round, changed);
+        s.changedBoard(op.puzzleId);
+      });
       return b.round;
     });
   }
@@ -92,6 +107,7 @@ export class FakeClient implements Remote {
       const b = this.server.boards.get(op.puzzleId);
       if (b && b.round === op.round) b.solved = true;
       this.server.solves.set(op.puzzleId, op.record);
+      queueMicrotask(() => this.server.changedBoard(op.puzzleId));
     });
   }
 
@@ -104,6 +120,7 @@ export class FakeClient implements Remote {
         b.seconds = 0;
         b.solved = false;
         this.server.cells.set(op.puzzleId, new Map());
+        queueMicrotask(() => this.server.changedBoard(op.puzzleId));
       }
       return b.round;
     });

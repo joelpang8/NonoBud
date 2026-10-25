@@ -16,7 +16,11 @@ export interface SyncSnapshot {
 }
 
 /** Something changed on an open board because of the other player or another device. */
-export type BoardEvent = { kind: 'cells'; changes: Change[] } | { kind: 'reset'; doc: BoardDoc };
+export type BoardEvent =
+  | { kind: 'cells'; changes: Change[] }
+  | { kind: 'reset'; doc: BoardDoc }
+  /** The shared time or solved state moved on elsewhere. */
+  | { kind: 'meta'; seconds: number; solved: boolean };
 
 const FLUSH_DELAY_MS = 120;
 const MAX_BACKOFF_MS = 60_000;
@@ -178,6 +182,19 @@ export class SyncEngine {
       this.mergeCells(doc, cells);
       this.emit();
     }
+  }
+
+  /** A board row changed on the server (live update): new round, time, or solved. */
+  receiveBoard(meta: BoardMeta): void {
+    const before = this.docs.get(meta.puzzleId);
+    const seconds = before?.seconds;
+    this.mergeMeta(meta);
+    const doc = this.docs.get(meta.puzzleId);
+    if (doc && doc === before && doc.round === meta.round && (doc.seconds !== seconds || meta.solved)) {
+      this.saveDoc(doc, false);
+      this.notify(meta.puzzleId, { kind: 'meta', seconds: doc.seconds, solved: doc.solved });
+    }
+    this.emit();
   }
 
   /** Record moves made on this device. */

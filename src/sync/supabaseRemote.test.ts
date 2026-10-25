@@ -21,7 +21,8 @@ function sqlParams(fn: string): string[] {
 function sqlColumns(table: string): string[] {
   const m = SQL.match(new RegExp(`create table public\\.${table} \\((.*?)\\n\\);`, 's'));
   if (!m) throw new Error(`table ${table} not found`);
-  return [...m[1].matchAll(/^\s+(\w+)\s/gm)].map((x) => x[1]).filter((c) => c !== 'primary');
+  const added = [...SQL.matchAll(new RegExp(`alter table public\\.${table} add column (\\w+)`, 'g'))].map((x) => x[1]);
+  return [...m[1].matchAll(/^\s+(\w+)\s/gm)].map((x) => x[1]).filter((c) => c !== 'primary').concat(added);
 }
 
 interface Recorded {
