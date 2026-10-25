@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo } from 'react';
 import { useAuth } from './auth/AuthGate';
+import { InviteBanner } from './components/InviteBanner';
 import { newRandomPuzzle, puzzleFromGenerated, type Puzzle } from './game';
 import { useHashRoute, type Route } from './hooks/useHashRoute';
 import { usePlayer } from './hooks/usePlayer';
@@ -59,6 +60,7 @@ export default function App() {
 
   return (
     <main className="app">
+      <InviteBanner go={go} currentPuzzleId={puzzle?.id ?? null} />
       {puzzle ? (
         <PlayRoute key={puzzle.id} puzzle={puzzle} player={player} onExit={() => go({ name: 'home' })} onNext={next} />
       ) : route.name === 'gallery' ? (

@@ -1,6 +1,7 @@
 import { Logo } from '../components/Logo';
 import { Thumb } from '../components/Thumb';
 import { useAuth } from '../auth/AuthGate';
+import { PartnerBanner } from '../components/InviteBanner';
 import { SyncBadge } from '../components/SyncBadge';
 import type { BoardMeta, SolvedRecord } from '../sync';
 import { useSync } from '../sync/SyncProvider';
@@ -89,6 +90,7 @@ export function Home({ player, onPlayer, go, onRandom }: HomeProps) {
         )}
       </div>
       <SyncBadge />
+      <PartnerBanner go={go} />
 
       {SIZES.map((n) => {
         const inSize = LIBRARY.filter((p) => p.n === n);

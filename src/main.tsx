@@ -8,13 +8,16 @@ import '@fontsource/dm-sans/700.css';
 import './styles/app.css';
 import App from './App';
 import { AuthGate } from './auth/AuthGate';
+import { LiveProvider } from './realtime/LiveProvider';
 import { SyncProvider } from './sync/SyncProvider';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <AuthGate>
       <SyncProvider>
-        <App />
+        <LiveProvider>
+          <App />
+        </LiveProvider>
       </SyncProvider>
     </AuthGate>
   </StrictMode>,

@@ -21,7 +21,11 @@ import {
 import { useActiveTimer } from '../hooks/useActiveTimer';
 import { useCellSize } from '../hooks/useCellSize';
 import { formatTime } from '../lib/format';
-import { PLAYER_NAMES } from '../lib/players';
+import { other, PLAYER_NAMES } from '../lib/players';
+import { routeHash } from '../hooks/useHashRoute';
+import { puzzleRoute } from '../lib/routes';
+import { watchLive } from '../realtime';
+import { useLive } from '../realtime/LiveProvider';
 import { difficulty } from '../solver';
 import type { BoardDoc } from '../sync';
 import { useEngine } from '../sync/SyncProvider';
@@ -35,39 +39,66 @@ interface PlayRouteProps {
 
 /** Opens the shared board for a puzzle and restarts the screen when a new round begins. */
 export function PlayRoute(props: PlayRouteProps) {
+  const { puzzle } = props;
   const engine = useEngine();
-  const [doc, setDoc] = useState<BoardDoc>(() => engine.open(props.puzzle));
+  const { realtime, showing } = useLive();
+  const [doc, setDoc] = useState<BoardDoc>(() => engine.open(puzzle));
+  const [restartedElsewhere, setRestartedElsewhere] = useState(false);
 
   // Someone pressed "Play again" on another device.
-  useEffect(() => engine.watch(props.puzzle.id, (e) => e.kind === 'reset' && setDoc(e.doc)), [engine, props.puzzle.id]);
+  useEffect(
+    () =>
+      engine.watch(puzzle.id, (e) => {
+        if (e.kind !== 'reset') return;
+        setDoc(e.doc);
+        setRestartedElsewhere(true);
+      }),
+    [engine, puzzle.id],
+  );
+
+  // Live updates while this puzzle is open, and let the partner know it's on screen.
+  useEffect(() => (realtime ? watchLive(engine, realtime, puzzle.id) : undefined), [engine, realtime, puzzle.id]);
+  useEffect(() => {
+    showing({ puzzleId: puzzle.id, n: puzzle.n, seed: puzzle.seed ?? null });
+    return () => showing({ puzzleId: null, n: null, seed: null });
+  }, [showing, puzzle]);
 
   const replay = () => {
-    const fresh = engine.reset(props.puzzle.id);
-    if (fresh) setDoc(fresh);
+    const fresh = engine.reset(puzzle.id);
+    if (fresh) {
+      setRestartedElsewhere(false);
+      setDoc(fresh);
+    }
   };
 
-  return <Play key={doc.round} {...props} doc={doc} onReplay={replay} />;
+  return <Play key={doc.round} {...props} doc={doc} onReplay={replay} restartedElsewhere={restartedElsewhere} />;
 }
 
 interface PlayProps extends PlayRouteProps {
   doc: BoardDoc;
   onReplay: () => void;
+  restartedElsewhere: boolean;
 }
 
 const WRONG_MS = 1800;
 const TOAST_MS = 2400;
 const SAVE_TIME_EVERY_MS = 15_000;
+const PULSE_MS = 900;
 
-function Play({ puzzle, player, doc, onExit, onNext, onReplay }: PlayProps) {
+function Play({ puzzle, player, doc, onExit, onNext, onReplay, restartedElsewhere }: PlayProps) {
   const engine = useEngine();
+  const { realtime, partner, invite } = useLive();
+  const partnerName = PLAYER_NAMES[other(player)];
+  const [pulse, setPulse] = useState<Set<number>>(new Set());
+  const [confirmClear, setConfirmClear] = useState(false);
   const [game, dispatch] = useReducer(gameReducer, null, (): GameState => initGame(puzzle, doc.cells.slice()));
   const [tool, setTool] = useState<Tool>('fill');
   const [zoomed, setZoomed] = useState(false);
   const [wrong, setWrong] = useState<Set<number>>(new Set());
-  const [toast, setToast] = useState('');
+  const [toast, setToast] = useState(restartedElsewhere ? 'This puzzle was restarted on the other phone.' : '');
   const [showWin, setShowWin] = useState(false);
   const stageRef = useRef<HTMLDivElement>(null);
-  const seconds = useActiveTimer(!game.solved, doc.seconds);
+  const [seconds, catchUpTime] = useActiveTimer(!game.solved, doc.seconds);
   const { cs, canZoom } = useCellSize(stageRef, puzzle, zoomed);
 
   useEffect(() => {
@@ -81,8 +112,27 @@ function Play({ puzzle, player, doc, onExit, onNext, onReplay }: PlayProps) {
     return () => window.clearTimeout(id);
   }, [wrong]);
 
-  // Moves from the partner or another device.
-  useEffect(() => engine.watch(puzzle.id, (e) => e.kind === 'cells' && dispatch({ type: 'remote', changes: e.changes })), [engine, puzzle.id]);
+  // Moves from the partner or another device: show them, and briefly pulse the cells they touched.
+  useEffect(
+    () =>
+      engine.watch(puzzle.id, (e) => {
+        if (e.kind === 'meta') return catchUpTime(e.seconds);
+        if (e.kind !== 'cells') return;
+        dispatch({ type: 'remote', changes: e.changes });
+        setPulse((cur) => new Set([...cur, ...e.changes.map((c) => c.i)]));
+      }),
+    [engine, puzzle.id, catchUpTime],
+  );
+  useEffect(() => {
+    if (!pulse.size) return;
+    const id = window.setTimeout(() => setPulse(new Set()), PULSE_MS);
+    return () => window.clearTimeout(id);
+  }, [pulse]);
+  useEffect(() => {
+    if (!confirmClear) return;
+    const id = window.setTimeout(() => setConfirmClear(false), 4000);
+    return () => window.clearTimeout(id);
+  }, [confirmClear]);
 
   // ---------- making moves ----------
   /** Every move goes to the sync engine (saved and sent) and to the screen. */
@@ -117,9 +167,31 @@ function Play({ puzzle, player, doc, onExit, onNext, onReplay }: PlayProps) {
   const clear = () => {
     const changes = clearChanges(game.cells);
     if (!changes.length) return;
+    // Clearing the board also clears the partner's cells, so ask once first.
+    const partnerCells = game.cells.some((c) => c.s !== 0 && c.by === other(player));
+    if (partnerCells && !confirmClear) {
+      setConfirmClear(true);
+      setToast(`This clears ${partnerName}'s cells too. Tap Start over again to confirm.`);
+      return;
+    }
+    setConfirmClear(false);
     play({ by: player, changes });
     setToast('Cleared. Undo brings it back.');
   };
+
+  const shareLink = async () => {
+    const url = window.location.origin + window.location.pathname + routeHash(puzzleRoute({ puzzleId: puzzle.id, n: puzzle.n, seed: puzzle.seed }));
+    try {
+      if (navigator.share) await navigator.share({ title: 'Cellmates', text: `Come solve this ${puzzle.n}×${puzzle.n} puzzle with me`, url });
+      else {
+        await navigator.clipboard.writeText(url);
+        setToast(`Link copied. Send it to ${partnerName}.`);
+      }
+    } catch {
+      /* closing the share sheet is fine */
+    }
+  };
+  const partnerHere = partner?.puzzleId === puzzle.id;
 
   // ---------- time ----------
   const secondsRef = useRef(seconds);
@@ -197,7 +269,7 @@ function Play({ puzzle, player, doc, onExit, onNext, onReplay }: PlayProps) {
       </div>
 
       <div ref={stageRef} className={zoomed ? 'stage zoomed' : 'stage'}>
-        <Board puzzle={puzzle} cells={game.cells} player={player} tool={tool} cs={cs} disabled={game.solved} wrong={wrong} onStroke={play} />
+        <Board puzzle={puzzle} cells={game.cells} player={player} tool={tool} cs={cs} disabled={game.solved} wrong={wrong} pulse={pulse} onStroke={play} />
       </div>
 
       <div className="legend">
@@ -233,9 +305,40 @@ function Play({ puzzle, player, doc, onExit, onNext, onReplay }: PlayProps) {
           <button type="button" onClick={hint}>
             Hint
           </button>
-          <button type="button" onClick={clear}>
-            Start over
+          <button type="button" onClick={clear} aria-pressed={confirmClear || undefined}>
+            {confirmClear ? 'Confirm start over' : 'Start over'}
           </button>
+        </div>
+      )}
+      {realtime && (
+        <div className="partner" aria-live="polite">
+          {partnerHere ? (
+            <span className="here">
+              <i style={{ background: `var(--p${other(player)})` }} aria-hidden="true" />
+              {partnerName} is here
+            </span>
+          ) : partner ? (
+            <>
+              <span>{partnerName} is online</span>
+              <button
+                type="button"
+                className="link-btn"
+                onClick={() => {
+                  invite({ puzzleId: puzzle.id, n: puzzle.n, seed: puzzle.seed ?? null });
+                  setToast(`Invite sent to ${partnerName}.`);
+                }}
+              >
+                Invite to this puzzle
+              </button>
+            </>
+          ) : (
+            <>
+              <span>{partnerName} isn't in the app right now</span>
+              <button type="button" className="link-btn" onClick={() => void shareLink()}>
+                Send a link
+              </button>
+            </>
+          )}
         </div>
       )}
       <p className="toast" aria-live="polite">

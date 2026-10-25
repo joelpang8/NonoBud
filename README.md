@@ -2,8 +2,7 @@
 
 Nonograms for two. A private app for Joel and YSL.
 
-> Status: **Phase 3 (accounts and shared progress)**. Live co-op comes in Phase 4,
-> polish and deployment in Phase 5.
+> Status: **Phase 4 (live co-op)**. Polish and deployment come in Phase 5.
 
 ## Run it on your computer
 
@@ -42,6 +41,9 @@ Without it the app still works, but only saves on the device you're using.
 2. Open the file `supabase/migrations/20261025000100_cellmates.sql` from this folder in a text
    editor, select everything, copy it, and paste it into the query box.
 3. Click **Run**. You should see *"Success. No rows returned"*.
+
+Then do the same with the second file, `supabase/migrations/20261026000100_live_coop.sql`
+(it turns on live updates). Always run the files in name order, each one once.
 
 ### 3. Add the two of you to the guest list
 1. Click **New query** again and paste this, **replacing the two emails** with the real ones
@@ -94,6 +96,16 @@ Anything you played before signing in on that device is uploaded automatically.
 **Optional extra lock:** once both accounts exist, go to **Authentication → Sign In / Providers**
 and turn off **Allow new users to sign up**. Signing in and password resets keep working.
 
+### Playing together live
+- Open the same puzzle on both phones and you'll see each other's moves as they happen. The
+  other person's new cells pulse briefly. "YSL is here" (or "Joel is here") shows under the board.
+- On the level list, a banner shows what the other person is playing, with a **Join** button.
+- On a puzzle, **Invite to this puzzle** pops up a Join banner on the other phone. If they
+  don't have the app open, **Send a link** opens your phone's share sheet instead.
+- If both of you change the same cell at the same moment, the later move wins on both phones.
+- If a phone loses its connection, its moves are kept and sent when it's back, and it catches
+  up on everything it missed.
+
 ### Good to know
 - Free Supabase projects **pause after about a week with no use**. If the app says it can't
   reach the server after a long break, open the Supabase dashboard and click **Restore project**.
@@ -139,6 +151,7 @@ npm run build     # production build into dist/
 | `src/puzzles` | The puzzle library (`library.json` is generated from `/art`). |
 | `src/sync` | Saving and syncing: device cache, outbox for offline moves, last-write-wins merging, Supabase calls. |
 | `src/auth` | Sign in, create account, password reset, guest-list check. |
+| `src/realtime` | Live updates, "who's online", and invites (Supabase Realtime). |
 | `supabase` | SQL migrations and their tests. |
 | `art` | One PNG per picture puzzle. |
 | `scripts` | `npm run art` builds puzzles from `/art`; `npm run icons` redraws the app icons. |
