@@ -1,5 +1,5 @@
 import { Thumb } from '../components/Thumb';
-import { useProgress } from '../data';
+import { useSync } from '../sync/SyncProvider';
 import type { Route } from '../hooks/useHashRoute';
 import { formatTime } from '../lib/format';
 import { PLAYER_NAMES } from '../lib/players';
@@ -16,7 +16,7 @@ function solvers(owners: string): string {
 }
 
 export function Gallery({ go }: { go: (r: Route) => void }) {
-  const { solved } = useProgress();
+  const { solved } = useSync();
   const records = [...solved.values()].sort((a, b) => b.solvedAt - a.solvedAt);
 
   return (

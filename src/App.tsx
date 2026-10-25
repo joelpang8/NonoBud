@@ -1,6 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Logo } from './components/Logo';
-import { useProgress } from './data';
+import { useCallback, useEffect, useMemo } from 'react';
+import { useAuth } from './auth/AuthGate';
 import { newRandomPuzzle, puzzleFromGenerated, type Puzzle } from './game';
 import { useHashRoute, type Route } from './hooks/useHashRoute';
 import { usePlayer } from './hooks/usePlayer';
@@ -8,8 +7,9 @@ import { puzzleRoute } from './lib/routes';
 import { findPuzzle, LIBRARY } from './puzzles/library';
 import { Gallery } from './screens/Gallery';
 import { Home } from './screens/Home';
-import { Play } from './screens/Play';
+import { PlayRoute } from './screens/Play';
 import { generate, randomSeed } from './solver';
+import { useSync } from './sync/SyncProvider';
 
 function puzzleFor(route: Route): Puzzle | null {
   if (route.name === 'puzzle') return findPuzzle(route.id) ?? null;
@@ -22,10 +22,11 @@ function puzzleFor(route: Route): Puzzle | null {
 
 export default function App() {
   const [route, go] = useHashRoute();
-  const [player, setPlayer] = usePlayer();
-  const { status, boards, solved, deleteBoard } = useProgress();
-  // Bumped by "Play again" to start the same puzzle on a fresh board.
-  const [round, setRound] = useState(0);
+  const [localPlayer, setPlayer] = usePlayer();
+  const auth = useAuth();
+  // Signed in, you are whoever the guest list says; on a device-only setup, pick by hand.
+  const player = auth.mode === 'cloud' ? auth.player : localPlayer;
+  const { solved } = useSync();
 
   const puzzle = useMemo(() => puzzleFor(route), [route]);
 
@@ -56,33 +57,10 @@ export default function App() {
     else playRandom(puzzle.n);
   }, [puzzle, solved, go, playRandom]);
 
-  if (status === 'loading') {
-    return (
-      <main className="app loading" aria-busy="true">
-        <Logo />
-        <p>Loading your puzzles…</p>
-      </main>
-    );
-  }
-
   return (
     <main className="app">
-      {status === 'unsaved' && (
-        <p className="note warn">This browser is blocking storage, so progress won't be kept after you close the app.</p>
-      )}
       {puzzle ? (
-        <Play
-          key={`${puzzle.id}:${round}`}
-          puzzle={puzzle}
-          player={player}
-          initial={boards.get(puzzle.id)}
-          onExit={() => go({ name: 'home' })}
-          onNext={next}
-          onReplay={() => {
-            deleteBoard(puzzle.id);
-            setRound((r) => r + 1);
-          }}
-        />
+        <PlayRoute key={puzzle.id} puzzle={puzzle} player={player} onExit={() => go({ name: 'home' })} onNext={next} />
       ) : route.name === 'gallery' ? (
         <Gallery go={go} />
       ) : (

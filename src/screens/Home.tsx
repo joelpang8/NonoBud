@@ -1,6 +1,9 @@
 import { Logo } from '../components/Logo';
 import { Thumb } from '../components/Thumb';
-import { useProgress, type SavedBoard, type SolvedRecord } from '../data';
+import { useAuth } from '../auth/AuthGate';
+import { SyncBadge } from '../components/SyncBadge';
+import type { BoardMeta, SolvedRecord } from '../sync';
+import { useSync } from '../sync/SyncProvider';
 import type { Player, Puzzle } from '../game';
 import type { Route } from '../hooks/useHashRoute';
 import { formatTime } from '../lib/format';
@@ -24,10 +27,11 @@ interface HomeProps {
 }
 
 const solvedLine = (r: SolvedRecord) => `Solved in ${formatTime(r.seconds)}${r.together ? ' together' : ''}`;
-const progressLine = (b: SavedBoard) => `In progress · ${formatTime(b.seconds)}`;
+const progressLine = (b: BoardMeta) => `In progress · ${formatTime(b.seconds)}`;
 
 export function Home({ player, onPlayer, go, onRandom }: HomeProps) {
-  const { boards, solved } = useProgress();
+  const { boards, solved } = useSync();
+  const auth = useAuth();
 
   // Random puzzles someone started or finished, newest first.
   type RandomCard = { id: string; n: number; seed?: number; at: number; label: string; owners?: string };
@@ -66,14 +70,25 @@ export function Home({ player, onPlayer, go, onRandom }: HomeProps) {
         <button type="button" className="back" onClick={() => go({ name: 'gallery' })}>
           Gallery · {solved.size}
         </button>
-        <div className="seg" role="group" aria-label="Who is playing on this device">
-          {([0, 1] as const).map((p) => (
-            <button key={p} type="button" aria-pressed={player === p} onClick={() => onPlayer(p)}>
-              {PLAYER_NAMES[p]}
+        {auth.mode === 'local' ? (
+          <div className="seg" role="group" aria-label="Who is playing on this device">
+            {([0, 1] as const).map((p) => (
+              <button key={p} type="button" aria-pressed={player === p} onClick={() => onPlayer(p)}>
+                {PLAYER_NAMES[p]}
+              </button>
+            ))}
+          </div>
+        ) : (
+          <div className="who">
+            <i style={{ background: `var(--p${auth.player})` }} aria-hidden="true" />
+            {PLAYER_NAMES[auth.player]}
+            <button type="button" className="link-btn" onClick={() => void auth.signOut()}>
+              Sign out
             </button>
-          ))}
-        </div>
+          </div>
+        )}
       </div>
+      <SyncBadge />
 
       {SIZES.map((n) => {
         const inSize = LIBRARY.filter((p) => p.n === n);

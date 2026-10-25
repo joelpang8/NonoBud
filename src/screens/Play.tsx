@@ -1,39 +1,73 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import { Board } from '../components/Board';
+import { SyncBadge } from '../components/SyncBadge';
 import { WinDialog } from '../components/WinDialog';
-import { decodeCells, encodeCells, useProgress, type SavedBoard } from '../data';
-import { countBy, gameReducer, initGame, mistakes, ownerString, type GameState, type Player, type Puzzle, type Stroke, type Tool } from '../game';
+import {
+  clearChanges,
+  countBy,
+  gameReducer,
+  hintChange,
+  initGame,
+  mistakes,
+  ownerString,
+  undoChanges,
+  type Change,
+  type GameState,
+  type Player,
+  type Puzzle,
+  type Stroke,
+  type Tool,
+} from '../game';
 import { useActiveTimer } from '../hooks/useActiveTimer';
 import { useCellSize } from '../hooks/useCellSize';
 import { formatTime } from '../lib/format';
 import { PLAYER_NAMES } from '../lib/players';
 import { difficulty } from '../solver';
+import type { BoardDoc } from '../sync';
+import { useEngine } from '../sync/SyncProvider';
 
-interface PlayProps {
+interface PlayRouteProps {
   puzzle: Puzzle;
   player: Player;
-  /** The saved board for this puzzle, if someone started it before. */
-  initial?: SavedBoard;
   onExit: () => void;
   onNext: () => void;
-  /** Throw away the finished board and start this puzzle fresh. */
+}
+
+/** Opens the shared board for a puzzle and restarts the screen when a new round begins. */
+export function PlayRoute(props: PlayRouteProps) {
+  const engine = useEngine();
+  const [doc, setDoc] = useState<BoardDoc>(() => engine.open(props.puzzle));
+
+  // Someone pressed "Play again" on another device.
+  useEffect(() => engine.watch(props.puzzle.id, (e) => e.kind === 'reset' && setDoc(e.doc)), [engine, props.puzzle.id]);
+
+  const replay = () => {
+    const fresh = engine.reset(props.puzzle.id);
+    if (fresh) setDoc(fresh);
+  };
+
+  return <Play key={doc.round} {...props} doc={doc} onReplay={replay} />;
+}
+
+interface PlayProps extends PlayRouteProps {
+  doc: BoardDoc;
   onReplay: () => void;
 }
 
 const WRONG_MS = 1800;
 const TOAST_MS = 2400;
-const SAVE_DELAY_MS = 400;
+const SAVE_TIME_EVERY_MS = 15_000;
 
-export function Play({ puzzle, player, initial, onExit, onNext, onReplay }: PlayProps) {
-  const { saveBoard, markSolved, saveError } = useProgress();
-  const [game, dispatch] = useReducer(gameReducer, null, (): GameState => initGame(puzzle, initial ? (decodeCells(initial.cells, puzzle.n) ?? undefined) : undefined));
+function Play({ puzzle, player, doc, onExit, onNext, onReplay }: PlayProps) {
+  const engine = useEngine();
+  const [game, dispatch] = useReducer(gameReducer, null, (): GameState => initGame(puzzle, doc.cells.slice()));
   const [tool, setTool] = useState<Tool>('fill');
   const [zoomed, setZoomed] = useState(false);
   const [wrong, setWrong] = useState<Set<number>>(new Set());
   const [toast, setToast] = useState('');
   const [showWin, setShowWin] = useState(false);
   const stageRef = useRef<HTMLDivElement>(null);
-  const seconds = useActiveTimer(!game.solved, initial?.seconds ?? 0);
+  const seconds = useActiveTimer(!game.solved, doc.seconds);
   const { cs, canZoom } = useCellSize(stageRef, puzzle, zoomed);
 
   useEffect(() => {
@@ -47,44 +81,60 @@ export function Play({ puzzle, player, initial, onExit, onNext, onReplay }: Play
     return () => window.clearTimeout(id);
   }, [wrong]);
 
-  // ---------- saving ----------
-  // The latest state, readable from timers and unmount without re-subscribing.
-  const latest = useRef({ game, seconds });
-  latest.current = { game, seconds };
-  // Only boards someone has touched are saved, so just looking at a puzzle doesn't mark it "in progress".
-  const started = useRef(!!initial);
-  const discarded = useRef(false);
-  const saveTimer = useRef<number | null>(null);
+  // Moves from the partner or another device.
+  useEffect(() => engine.watch(puzzle.id, (e) => e.kind === 'cells' && dispatch({ type: 'remote', changes: e.changes })), [engine, puzzle.id]);
 
-  const flush = useCallback(() => {
-    if (saveTimer.current !== null) {
-      window.clearTimeout(saveTimer.current);
-      saveTimer.current = null;
-    }
-    if (!started.current || discarded.current) return;
-    const { game: g, seconds: s } = latest.current;
-    saveBoard({ puzzleId: puzzle.id, n: puzzle.n, seed: puzzle.seed, cells: encodeCells(g.cells), seconds: s, solved: g.solved, updatedAt: Date.now() });
-  }, [saveBoard, puzzle]);
+  // ---------- making moves ----------
+  /** Every move goes to the sync engine (saved and sent) and to the screen. */
+  const play = useCallback(
+    (stroke: Stroke) => {
+      if (!stroke.changes.length) return;
+      engine.applyLocal(puzzle.id, stroke.changes);
+      dispatch({ type: 'local', stroke });
+    },
+    [engine, puzzle.id],
+  );
 
-  const firstCells = useRef(game.cells);
+  const undo = () => {
+    const last = game.undo[game.undo.length - 1];
+    if (!last) return;
+    const changes: Change[] = undoChanges(game.cells, last);
+    engine.applyLocal(puzzle.id, changes);
+    dispatch({ type: 'undo', changes });
+  };
+  const check = () => {
+    const bad = mistakes(puzzle, game.cells);
+    if (!bad.length) return setToast('No mistakes so far.');
+    setWrong(new Set(bad));
+    setToast(`${bad.length} ${bad.length === 1 ? 'cell is' : 'cells are'} wrong.`);
+  };
+  const hint = () => {
+    const c = hintChange(puzzle, game.cells, player);
+    if (!c) return setToast('Nothing left to fill. Remove any wrong cells.');
+    play({ by: player, changes: [c] });
+    setToast('Filled one cell for you.');
+  };
+  const clear = () => {
+    const changes = clearChanges(game.cells);
+    if (!changes.length) return;
+    play({ by: player, changes });
+    setToast('Cleared. Undo brings it back.');
+  };
+
+  // ---------- time ----------
+  const secondsRef = useRef(seconds);
+  secondsRef.current = seconds;
   useEffect(() => {
-    if (game.cells === firstCells.current) return;
-    started.current = true;
-    if (saveTimer.current !== null) window.clearTimeout(saveTimer.current);
-    saveTimer.current = window.setTimeout(flush, SAVE_DELAY_MS);
-  }, [game.cells, flush]);
-
-  // Save when leaving the screen or when the app goes to the background (phones may kill it there).
-  useEffect(() => {
-    const onHide = () => document.visibilityState === 'hidden' && flush();
+    const save = () => engine.saveSeconds(puzzle.id, secondsRef.current, doc.round);
+    const id = window.setInterval(save, SAVE_TIME_EVERY_MS);
+    const onHide = () => document.visibilityState === 'hidden' && save();
     document.addEventListener('visibilitychange', onHide);
-    window.addEventListener('pagehide', flush);
     return () => {
+      window.clearInterval(id);
       document.removeEventListener('visibilitychange', onHide);
-      window.removeEventListener('pagehide', flush);
-      flush();
+      save();
     };
-  }, [flush]);
+  }, [engine, puzzle.id, doc.round]);
 
   // ---------- winning ----------
   // A board that was already solved when opened doesn't celebrate again.
@@ -93,7 +143,7 @@ export function Play({ puzzle, player, initial, onExit, onNext, onReplay }: Play
     if (!game.solved || reported.current) return;
     reported.current = true;
     const [a, b] = countBy(game.cells);
-    markSolved({
+    engine.markSolved({
       puzzleId: puzzle.id,
       name: puzzle.name,
       n: puzzle.n,
@@ -103,32 +153,8 @@ export function Play({ puzzle, player, initial, onExit, onNext, onReplay }: Play
       seed: puzzle.seed,
       solvedAt: Date.now(),
     });
-    flush();
     setShowWin(true);
-  }, [game.solved, game.cells, puzzle, seconds, markSolved, flush]);
-
-  const onStroke = useCallback((stroke: Stroke) => dispatch({ type: 'stroke', stroke }), []);
-
-  const check = () => {
-    const bad = mistakes(puzzle, game.cells);
-    if (!bad.length) return setToast('No mistakes so far.');
-    setWrong(new Set(bad));
-    setToast(`${bad.length} ${bad.length === 1 ? 'cell is' : 'cells are'} wrong.`);
-  };
-  const hint = () => {
-    const open = game.cells.some((c, i) => puzzle.solution[i] === 1 && c.s !== 1);
-    dispatch({ type: 'hint', by: player });
-    setToast(open ? 'Filled one cell for you.' : 'Nothing left to fill. Remove any wrong cells.');
-  };
-  const clear = () => {
-    if (!game.cells.some((c) => c.s !== 0)) return;
-    dispatch({ type: 'clear', by: player });
-    setToast('Cleared. Undo brings it back.');
-  };
-  const replay = () => {
-    discarded.current = true;
-    onReplay();
-  };
+  }, [game.solved, game.cells, puzzle, seconds, engine]);
 
   const [a, b] = countBy(game.cells);
   // Picture names are spoilers, so they stay hidden until solved (random puzzles have no picture).
@@ -171,7 +197,7 @@ export function Play({ puzzle, player, initial, onExit, onNext, onReplay }: Play
       </div>
 
       <div ref={stageRef} className={zoomed ? 'stage zoomed' : 'stage'}>
-        <Board puzzle={puzzle} cells={game.cells} player={player} tool={tool} cs={cs} disabled={game.solved} wrong={wrong} onStroke={onStroke} />
+        <Board puzzle={puzzle} cells={game.cells} player={player} tool={tool} cs={cs} disabled={game.solved} wrong={wrong} onStroke={play} />
       </div>
 
       <div className="legend">
@@ -189,7 +215,7 @@ export function Play({ puzzle, player, initial, onExit, onNext, onReplay }: Play
 
       {game.solved ? (
         <div className="acts">
-          <button type="button" onClick={replay}>
+          <button type="button" onClick={onReplay}>
             Play again
           </button>
           <button type="button" onClick={onNext}>
@@ -198,7 +224,7 @@ export function Play({ puzzle, player, initial, onExit, onNext, onReplay }: Play
         </div>
       ) : (
         <div className="acts">
-          <button type="button" disabled={!game.undo.length} onClick={() => dispatch({ type: 'undo', by: player })}>
+          <button type="button" disabled={!game.undo.length} onClick={undo}>
             Undo
           </button>
           <button type="button" onClick={check}>
@@ -215,7 +241,7 @@ export function Play({ puzzle, player, initial, onExit, onNext, onReplay }: Play
       <p className="toast" aria-live="polite">
         {game.solved && !showWin ? `Solved in ${formatTime(seconds)}.` : toast}
       </p>
-      {saveError && <p className="note warn">{saveError}</p>}
+      <SyncBadge />
 
       {showWin && (
         <WinDialog

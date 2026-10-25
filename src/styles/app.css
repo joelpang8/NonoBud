@@ -554,3 +554,118 @@ h2 {
   opacity: 0.5;
   cursor: default;
 }
+
+/* ---------- Sign in ---------- */
+.auth .lede {
+  margin-bottom: 22px;
+}
+.auth-tabs {
+  margin-bottom: 18px;
+}
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-width: 360px;
+}
+.form h2 {
+  font-size: 24px;
+  font-weight: 800;
+}
+.form label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-weight: 500;
+  font-size: 15px;
+}
+.form label small {
+  color: var(--muted);
+  font-weight: 400;
+  font-size: 13px;
+}
+.form input {
+  font: inherit;
+  font-size: 16px; /* 16px stops iPhone Safari zooming into the field */
+  color: var(--ink);
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 11px 12px;
+}
+.form input:focus-visible {
+  outline: 3px solid var(--p1);
+  outline-offset: 1px;
+  border-color: transparent;
+}
+.form .pri-btn {
+  min-height: 46px;
+}
+.form .pri-btn:disabled {
+  opacity: 0.6;
+}
+.form-msg {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--p1) 14%, transparent);
+  font-size: 15px;
+}
+.form-msg.err {
+  background: color-mix(in srgb, var(--p0) 16%, transparent);
+}
+.link-btn {
+  background: none;
+  border: 0;
+  padding: 6px 0;
+  color: var(--muted);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  font-size: 14px;
+  align-self: flex-start;
+}
+
+/* ---------- Who is signed in, and whether moves are saved ---------- */
+.who {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+}
+.who i {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+}
+.who .link-btn {
+  font-weight: 400;
+  margin-left: 4px;
+}
+.sync-badge {
+  color: var(--muted);
+  font-size: 13px;
+  margin: 10px auto 0;
+  max-width: 46ch;
+  text-align: center;
+}
+.home-meta + .sync-badge {
+  margin: -14px 0 22px;
+  text-align: left;
+}
+.sync-badge i {
+  display: inline-block;
+  vertical-align: 1px;
+  margin-right: 8px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--p1);
+}
+.sync-badge.syncing i,
+.sync-badge.local i {
+  background: var(--guide);
+}
+.sync-badge.offline i,
+.sync-badge.error i {
+  background: var(--warn);
+}
