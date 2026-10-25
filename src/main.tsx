@@ -8,17 +8,23 @@ import '@fontsource/dm-sans/700.css';
 import './styles/app.css';
 import App from './App';
 import { AuthGate } from './auth/AuthGate';
+import { ErrorBoundary } from './components/ErrorBoundary';
+import { applyTheme, getSettings } from './lib/settings';
 import { LiveProvider } from './realtime/LiveProvider';
 import { SyncProvider } from './sync/SyncProvider';
 
+applyTheme(getSettings().theme);
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <AuthGate>
-      <SyncProvider>
-        <LiveProvider>
-          <App />
-        </LiveProvider>
-      </SyncProvider>
-    </AuthGate>
+    <ErrorBoundary>
+      <AuthGate>
+        <SyncProvider>
+          <LiveProvider>
+            <App />
+          </LiveProvider>
+        </SyncProvider>
+      </AuthGate>
+    </ErrorBoundary>
   </StrictMode>,
 );

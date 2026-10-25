@@ -10,7 +10,10 @@
  *
  * Each picture is checked: it must have exactly one answer and be solvable
  * without guessing. Pictures that fail are skipped with a note saying which
- * rows to look at.
+ * rows to look at; the rest still go in.
+ *
+ * This also runs automatically as part of `npm run build`, so on Vercel a PNG
+ * uploaded to /art on GitHub becomes a puzzle on the next deploy.
  */
 import { readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { basename, join } from 'node:path';
@@ -59,5 +62,4 @@ console.log(`\nWrote ${entries.length} puzzles to ${OUT}`);
 if (problems.length) {
   console.log(`\n${problems.length} picture(s) need attention:`);
   for (const p of problems) console.log(`  - ${p}`);
-  process.exitCode = 1;
 }
