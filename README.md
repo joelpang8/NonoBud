@@ -2,8 +2,8 @@
 
 Nonograms for two. A private app for Joel and YSL.
 
-> Status: **Phase 2 (puzzle library and progress)**. Progress is saved on each device for now.
-> Accounts, shared progress and live co-op come in Phases 3 and 4. The full setup guide lands in Phase 5.
+> Status: **Phase 3 (accounts and shared progress)**. Live co-op comes in Phase 4,
+> polish and deployment in Phase 5.
 
 ## Run it on your computer
 
@@ -22,6 +22,85 @@ npm run dev -- --host
 ```
 It prints a "Network" address like `http://192.168.1.20:5173`. Open that on your phone.
 (Installing to the home screen needs HTTPS, so that part is tested after deploying.)
+
+## Set up Supabase (accounts and shared progress)
+
+Supabase is the free online database that lets both of you share puzzles. You do this once.
+Without it the app still works, but only saves on the device you're using.
+
+### 1. Create the project
+1. Go to https://supabase.com and click **Start your project**. Sign up (GitHub or email is fine).
+2. Click **New project**.
+   - **Name:** `cellmates`
+   - **Database password:** click **Generate a password** and save it somewhere safe.
+     (The app doesn't need it, but you might later.)
+   - **Region:** the one closest to you.
+3. Click **Create new project** and wait a couple of minutes until it says it's ready.
+
+### 2. Create the tables
+1. In the left sidebar, open **SQL Editor**, then click **New query** (or the **+** button).
+2. Open the file `supabase/migrations/20261025000100_cellmates.sql` from this folder in a text
+   editor, select everything, copy it, and paste it into the query box.
+3. Click **Run**. You should see *"Success. No rows returned"*.
+
+### 3. Add the two of you to the guest list
+1. Click **New query** again and paste this, **replacing the two emails** with the real ones
+   (all lowercase):
+   ```sql
+   insert into public.allowed_emails (email, player, display_name) values
+     ('joel-email@example.com', 0, 'Joel'),
+     ('ysl-email@example.com', 1, 'YSL');
+   ```
+2. Click **Run**. Player 0 is rose (Joel), player 1 is teal (YSL).
+
+Only these two emails can ever create an account. Anyone else gets *"This app is private"*.
+To change an email later, edit the row in **Table Editor → allowed_emails**.
+
+### 4. Auth settings
+1. Left sidebar: **Authentication**, then **Sign In / Providers** (on older dashboards:
+   **Providers → Email**).
+2. Make sure **Email** is enabled, and turn **off** **Confirm email**, then **Save**.
+   (Only your two emails can sign up anyway, so the confirmation email adds nothing, and
+   Supabase's free email sending is limited to a few per hour.)
+3. Open **Authentication → URL Configuration**:
+   - **Site URL:** `http://localhost:5173` for now (you'll change it to your real web address
+     when you deploy in Phase 5).
+   - Under **Redirect URLs**, click **Add URL** and add `http://localhost:5173/**`, plus your
+     phone address like `http://192.168.1.159:5173/**`. These are used by "Forgot your password?".
+
+### 5. Connect the app
+1. In the Supabase dashboard, click **Connect** at the top (or **Project Settings → API Keys**).
+   Copy the **Project URL** and the **Publishable key** (if you only see an older
+   **anon public** key, that works too).
+2. In Terminal, in your home folder, create a settings file you can reuse every time you
+   download a new version:
+   ```bash
+   cp ~/Downloads/NonoBud-claude-admiring-mccarthy-984ado/.env.example ~/cellmates.env
+   open -e ~/cellmates.env
+   ```
+   TextEdit opens. Replace the two example values with yours, save (Cmd+S) and close it.
+3. Copy it into the project and restart the app:
+   ```bash
+   cd ~/Downloads/NonoBud-claude-admiring-mccarthy-984ado
+   cp ~/cellmates.env .env.local
+   npm run dev -- --host
+   ```
+
+### 6. Create your accounts
+Open the app, tap **Create account**, and use the email from the guest list with a password of
+at least 8 characters. YSL does the same on her phone with her email.
+Anything you played before signing in on that device is uploaded automatically.
+
+**Optional extra lock:** once both accounts exist, go to **Authentication → Sign In / Providers**
+and turn off **Allow new users to sign up**. Signing in and password resets keep working.
+
+### Good to know
+- Free Supabase projects **pause after about a week with no use**. If the app says it can't
+  reach the server after a long break, open the Supabase dashboard and click **Restore project**.
+- "Forgot your password?" emails a link. Open it **on the same device and browser** where you
+  asked for it.
+- The **SQL migration files** live in `supabase/migrations`. `npm test` runs them on a built-in
+  test database to check the security rules.
 
 ## Add your own picture puzzles
 
@@ -58,6 +137,8 @@ npm run build     # production build into dist/
 | `src/game` | Board rules: strokes, undo, check, hint, win. No React. Fully tested. |
 | `src/components`, `src/screens` | The React UI. |
 | `src/puzzles` | The puzzle library (`library.json` is generated from `/art`). |
-| `src/data` | Saving progress (on the device for now; Supabase in Phase 3). |
+| `src/sync` | Saving and syncing: device cache, outbox for offline moves, last-write-wins merging, Supabase calls. |
+| `src/auth` | Sign in, create account, password reset, guest-list check. |
+| `supabase` | SQL migrations and their tests. |
 | `art` | One PNG per picture puzzle. |
 | `scripts` | `npm run art` builds puzzles from `/art`; `npm run icons` redraws the app icons. |
