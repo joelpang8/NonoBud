@@ -7,9 +7,12 @@ import '@fontsource/dm-sans/500.css';
 import '@fontsource/dm-sans/700.css';
 import './styles/app.css';
 import App from './App';
+import { ProgressProvider } from './data';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <App />
+    <ProgressProvider>
+      <App />
+    </ProgressProvider>
   </StrictMode>,
 );

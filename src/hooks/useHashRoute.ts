@@ -1,16 +1,18 @@
 import { useCallback, useEffect, useState } from 'react';
 
-export type Route = { name: 'home' } | { name: 'puzzle'; id: string } | { name: 'random'; n: number; seed: number };
+export type Route = { name: 'home' } | { name: 'gallery' } | { name: 'puzzle'; id: string } | { name: 'random'; n: number; seed: number };
 
 /**
  * Tiny hash router. Hash URLs work on any static host with no server config,
  * and make the phone's back gesture return to the level list.
  *   #/            home
+ *   #/gallery     finished pictures
  *   #/p/<id>      library puzzle
  *   #/r/<n>/<seed> random puzzle (rebuilt from its seed)
  */
 export function parseHash(hash: string): Route {
   const parts = hash.replace(/^#\/?/, '').split('/').filter(Boolean);
+  if (parts[0] === 'gallery') return { name: 'gallery' };
   if (parts[0] === 'p' && parts[1]) return { name: 'puzzle', id: decodeURIComponent(parts[1]) };
   if (parts[0] === 'r' && parts[1] && parts[2]) {
     const n = Number(parts[1]);
@@ -21,6 +23,7 @@ export function parseHash(hash: string): Route {
 }
 
 export function routeHash(r: Route): string {
+  if (r.name === 'gallery') return '#/gallery';
   if (r.name === 'puzzle') return `#/p/${encodeURIComponent(r.id)}`;
   if (r.name === 'random') return `#/r/${r.n}/${r.seed}`;
   return '#/';

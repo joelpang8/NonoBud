@@ -1,11 +1,13 @@
 import { Logo } from '../components/Logo';
 import { Thumb } from '../components/Thumb';
-import type { Player } from '../game';
+import { useProgress, type SavedBoard, type SolvedRecord } from '../data';
+import type { Player, Puzzle } from '../game';
+import type { Route } from '../hooks/useHashRoute';
 import { formatTime } from '../lib/format';
 import { PLAYER_NAMES } from '../lib/players';
+import { puzzleRoute } from '../lib/routes';
 import { LIBRARY, SIZES, type Size } from '../puzzles/library';
 import { difficulty } from '../solver';
-import type { SolvedRecord } from './Play';
 
 const SUBTITLES: Record<Size, string> = {
   5: 'A few minutes',
@@ -17,13 +19,42 @@ const SUBTITLES: Record<Size, string> = {
 interface HomeProps {
   player: Player;
   onPlayer: (p: Player) => void;
-  solved: ReadonlyMap<string, SolvedRecord>;
-  onPlay: (id: string) => void;
+  go: (r: Route) => void;
   onRandom: (n: number) => void;
 }
 
-export function Home({ player, onPlayer, solved, onPlay, onRandom }: HomeProps) {
-  const randoms = [...solved.values()].filter((r) => r.seed !== undefined);
+const solvedLine = (r: SolvedRecord) => `Solved in ${formatTime(r.seconds)}${r.together ? ' together' : ''}`;
+const progressLine = (b: SavedBoard) => `In progress · ${formatTime(b.seconds)}`;
+
+export function Home({ player, onPlayer, go, onRandom }: HomeProps) {
+  const { boards, solved } = useProgress();
+
+  // Random puzzles someone started or finished, newest first.
+  type RandomCard = { id: string; n: number; seed?: number; at: number; label: string; owners?: string };
+  const randoms: RandomCard[] = [
+    ...[...boards.values()]
+      .filter((b) => b.seed !== undefined && !b.solved && !solved.has(b.puzzleId))
+      .map((b) => ({ id: b.puzzleId, n: b.n, seed: b.seed, at: b.updatedAt, label: progressLine(b) })),
+    ...[...solved.values()]
+      .filter((r) => r.seed !== undefined)
+      .map((r) => ({ id: r.puzzleId, n: r.n, seed: r.seed, at: r.solvedAt, label: solvedLine(r), owners: r.owners })),
+  ].sort((a, b) => b.at - a.at);
+
+  const card = (p: Puzzle) => {
+    const done = solved.get(p.id);
+    const board = boards.get(p.id);
+    const label = done ? solvedLine(done) : board && !board.solved ? progressLine(board) : difficulty({ solved: p.lineSolvable, passes: p.passes }, p.n);
+    return (
+      <button type="button" className="card" key={p.id} onClick={() => go({ name: 'puzzle', id: p.id })}>
+        <Thumb n={p.n} owners={done?.owners} />
+        <span>
+          <b>{done ? p.name : 'Unsolved'}</b>
+          <small>{label}</small>
+        </span>
+      </button>
+    );
+  };
+
   return (
     <>
       <div className="brand">
@@ -32,7 +63,9 @@ export function Home({ player, onPlayer, solved, onPlay, onRandom }: HomeProps) 
       </div>
       <p className="lede">Nonograms for two. Solve side by side on the same grid, or take one each.</p>
       <div className="home-meta">
-        <p className="count">{solved.size} solved so far</p>
+        <button type="button" className="back" onClick={() => go({ name: 'gallery' })}>
+          Gallery · {solved.size}
+        </button>
         <div className="seg" role="group" aria-label="Who is playing on this device">
           {([0, 1] as const).map((p) => (
             <button key={p} type="button" aria-pressed={player === p} onClick={() => onPlayer(p)}>
@@ -42,52 +75,40 @@ export function Home({ player, onPlayer, solved, onPlay, onRandom }: HomeProps) 
         </div>
       </div>
 
-      {SIZES.map((n) => (
-        <section className="sec" key={n} aria-labelledby={`sec-${n}`}>
-          <div className="sec-h">
-            <h2 id={`sec-${n}`}>
-              {n}×{n}
-            </h2>
-            <span>{SUBTITLES[n]}</span>
-          </div>
-          <div className="cards">
-            {LIBRARY.filter((p) => p.n === n).map((p) => {
-              const d = solved.get(p.id);
-              return (
-                <button type="button" className="card" key={p.id} onClick={() => onPlay(p.id)}>
-                  <Thumb n={p.n} owners={d?.owners} />
-                  <span>
-                    <b>{d ? p.name : 'Unsolved'}</b>
-                    <small>
-                      {d
-                        ? `Solved in ${formatTime(d.seconds)}${d.together ? ' together' : ''}`
-                        : difficulty({ solved: p.lineSolvable, passes: p.passes }, p.n)}
-                    </small>
-                  </span>
-                </button>
-              );
-            })}
-            {randoms
-              .filter((r) => r.n === n)
-              .map((r) => (
-                <div className="card" key={r.puzzleId}>
-                  <Thumb n={r.n} owners={r.owners} />
-                  <span>
-                    <b>{r.name}</b>
-                    <small>
-                      Solved in {formatTime(r.seconds)}
-                      {r.together ? ' together' : ''}
-                    </small>
-                  </span>
-                </div>
-              ))}
-            <button type="button" className="card new" onClick={() => onRandom(n)}>
-              <b>New random puzzle</b>
-              <small>Checked so it can be solved by logic</small>
-            </button>
-          </div>
-        </section>
-      ))}
+      {SIZES.map((n) => {
+        const inSize = LIBRARY.filter((p) => p.n === n);
+        const doneCount = inSize.filter((p) => solved.has(p.id)).length;
+        return (
+          <section className="sec" key={n} aria-labelledby={`sec-${n}`}>
+            <div className="sec-h">
+              <h2 id={`sec-${n}`}>
+                {n}×{n}
+              </h2>
+              <span>
+                {SUBTITLES[n]} · {doneCount} of {inSize.length} solved
+              </span>
+            </div>
+            <div className="cards">
+              {inSize.map(card)}
+              {randoms
+                .filter((r) => r.n === n)
+                .map((r) => (
+                  <button type="button" className="card" key={r.id} onClick={() => go(puzzleRoute({ puzzleId: r.id, n: r.n, seed: r.seed }))}>
+                    <Thumb n={r.n} owners={r.owners} />
+                    <span>
+                      <b>Random</b>
+                      <small>{r.label}</small>
+                    </span>
+                  </button>
+                ))}
+              <button type="button" className="card new" onClick={() => onRandom(n)}>
+                <b>New random puzzle</b>
+                <small>Checked so it can be solved by logic</small>
+              </button>
+            </div>
+          </section>
+        );
+      })}
     </>
   );
 }

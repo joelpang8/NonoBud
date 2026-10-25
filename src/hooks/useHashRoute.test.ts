@@ -1,7 +1,7 @@
 import { parseHash, routeHash, type Route } from './useHashRoute';
 
 describe('hash routes', () => {
-  it.each<Route>([{ name: 'home' }, { name: 'puzzle', id: 'p10-cat' }, { name: 'random', n: 15, seed: 4000000000 }])('round-trips %o', (r) => {
+  it.each<Route>([{ name: 'home' }, { name: 'gallery' }, { name: 'puzzle', id: 'p10-cat' }, { name: 'random', n: 15, seed: 4000000000 }])('round-trips %o', (r) => {
     expect(parseHash(routeHash(r))).toEqual(r);
   });
 
