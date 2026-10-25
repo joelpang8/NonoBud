@@ -1,7 +1,7 @@
 import { cluesFor, lineSatisfies, parseRows, runs } from './clues';
 import { difficulty, solveGrid } from './grid';
 import { findSolutions } from './search';
-import { PROTOTYPE_PUZZLES } from '../puzzles/prototype';
+import LIBRARY from '../puzzles/library.json';
 
 describe('clue helpers', () => {
   it('computes runs', () => {
@@ -20,7 +20,7 @@ describe('clue helpers', () => {
 });
 
 describe('solveGrid', () => {
-  it.each(PROTOTYPE_PUZZLES)('solves "$name" uniquely by line logic', ({ rows }) => {
+  it.each(LIBRARY)('solves library puzzle "$name" uniquely by line logic', ({ rows }) => {
     const { n, solution } = parseRows(rows);
     const res = solveGrid(cluesFor(solution, n), n);
     expect(res.solved).toBe(true);

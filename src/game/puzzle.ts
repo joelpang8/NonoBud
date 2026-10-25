@@ -1,8 +1,10 @@
 import { cluesFor, generate, parseRows, solveGrid, type Generated } from '../solver';
 import type { Puzzle } from './types';
 
-export function puzzleFromSolution(id: string, name: string, n: number, solution: number[], seed?: number): Puzzle {
+/** Build a puzzle from its picture. Pass `knownPasses` to skip re-solving a puzzle already checked. */
+export function puzzleFromSolution(id: string, name: string, n: number, solution: number[], seed?: number, knownPasses?: number): Puzzle {
   const clues = cluesFor(solution, n);
+  if (knownPasses !== undefined) return { id, name, n, solution, ...clues, passes: knownPasses, lineSolvable: true, seed };
   const res = solveGrid(clues, n);
   return { id, name, n, solution, ...clues, passes: res.passes, lineSolvable: res.solved, seed };
 }
