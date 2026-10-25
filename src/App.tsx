@@ -8,6 +8,7 @@ import { puzzleRoute } from './lib/routes';
 import { findPuzzle, LIBRARY } from './puzzles/library';
 import { Gallery } from './screens/Gallery';
 import { Home } from './screens/Home';
+import { Settings } from './screens/Settings';
 import { PlayRoute } from './screens/Play';
 import { generate, randomSeed } from './solver';
 import { useSync } from './sync/SyncProvider';
@@ -65,6 +66,8 @@ export default function App() {
         <PlayRoute key={puzzle.id} puzzle={puzzle} player={player} onExit={() => go({ name: 'home' })} onNext={next} />
       ) : route.name === 'gallery' ? (
         <Gallery go={go} />
+      ) : route.name === 'settings' ? (
+        <Settings go={go} />
       ) : (
         <Home player={player} onPlayer={setPlayer} go={go} onRandom={playRandom} />
       )}

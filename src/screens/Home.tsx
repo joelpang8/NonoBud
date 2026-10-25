@@ -65,6 +65,15 @@ export function Home({ player, onPlayer, go, onRandom }: HomeProps) {
       <div className="brand">
         <Logo />
         <h1>Cellmates</h1>
+        <button type="button" className="icon-btn" onClick={() => go({ name: 'settings' })} aria-label="Settings">
+          <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+            <path
+              fill="currentColor"
+              d="M19.4 13a7.6 7.6 0 0 0 0-2l2-1.6-2-3.4-2.4 1a7.4 7.4 0 0 0-1.7-1L15 3.5h-4l-.4 2.5a7.4 7.4 0 0 0-1.7 1l-2.4-1-2 3.4L6.6 11a7.6 7.6 0 0 0 0 2l-2 1.6 2 3.4 2.4-1a7.4 7.4 0 0 0 1.7 1l.4 2.5h4l.4-2.5a7.4 7.4 0 0 0 1.7-1l2.4 1 2-3.4zM13 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z"
+              transform="translate(-1 0)"
+            />
+          </svg>
+        </button>
       </div>
       <p className="lede">Nonograms for two. Solve side by side on the same grid, or take one each.</p>
       <div className="home-meta">
@@ -83,9 +92,6 @@ export function Home({ player, onPlayer, go, onRandom }: HomeProps) {
           <div className="who">
             <i style={{ background: `var(--p${auth.player})` }} aria-hidden="true" />
             {PLAYER_NAMES[auth.player]}
-            <button type="button" className="link-btn" onClick={() => void auth.signOut()}>
-              Sign out
-            </button>
           </div>
         )}
       </div>
