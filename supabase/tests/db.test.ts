@@ -122,6 +122,26 @@ describe('last write wins per cell', () => {
   });
 });
 
+describe('live co-op', () => {
+  it('stamps each cell with its round', async () => {
+    await apply(JOEL, [move(11, 1, 0, 800)]);
+    const [c] = await as<{ round: number }>(JOEL, `select round from public.board_cells where idx = 11`);
+    expect(c.round).toBe(0);
+  });
+
+  it('publishes board changes to realtime', async () => {
+    const rows = await as<{ tablename: string }>(JOEL, `select tablename from pg_publication_tables where pubname = 'supabase_realtime' order by 1`);
+    expect(rows.map((r) => r.tablename)).toEqual(['board_cells', 'boards']);
+  });
+
+  it('lets only members use the presence and invite channel', async () => {
+    await as(JOEL, `insert into realtime.messages (topic, extension, event) values ('cellmates', 'presence', 'x')`);
+    expect(await as(YSL, `select * from realtime.messages`)).toHaveLength(1);
+    expect(await as('stranger@example.com', `select * from realtime.messages`)).toHaveLength(0);
+    await expect(as('stranger@example.com', `insert into realtime.messages (topic, extension, event) values ('cellmates', 'broadcast', 'invite')`)).rejects.toThrow(/row-level security/);
+  });
+});
+
 describe('solving and playing again', () => {
   it('records a solve and marks the board solved', async () => {
     await as(YSL, `select public.record_solve('p5-heart', 0, 'Heart', 5::smallint, null, 61, '..0..', true)`);
