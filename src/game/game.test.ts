@@ -1,6 +1,8 @@
 import {
+  clearChanges,
   countBy,
   emptyBoard,
+  hintChange,
   gameReducer,
   initGame,
   isSolved,
@@ -10,6 +12,7 @@ import {
   ruleChange,
   satisfiedLines,
   strokeRule,
+  undoChanges,
   type Cell,
   type Change,
   type GameState,
@@ -31,8 +34,11 @@ function drag(state: GameState, tool: Tool, idx: number[], by: Player = 0): Game
       cells[i] = c.next;
     }
   }
-  return gameReducer(state, { type: 'stroke', stroke: { by, changes } });
+  return gameReducer(state, { type: 'local', stroke: { by, changes } });
 }
+
+const undo = (g: GameState): GameState => gameReducer(g, { type: 'undo', changes: undoChanges(g.cells, g.undo[g.undo.length - 1]) });
+const clear = (g: GameState, by: Player = 0): GameState => gameReducer(g, { type: 'local', stroke: { by, changes: clearChanges(g.cells) } });
 
 const solutionCells = (): number[] =>
   heart.solution.flatMap((v, i) => (v ? [i] : []));
@@ -78,7 +84,7 @@ describe('undo', () => {
   it('reverts the last stroke as one step', () => {
     let g = initGame(heart);
     g = drag(g, 'fill', [5, 6, 7, 8]);
-    g = gameReducer(g, { type: 'undo', by: 0 });
+    g = undo(g);
     expect(g.cells.every((c) => c.s === 0)).toBe(true);
     expect(g.undo).toHaveLength(0);
   });
@@ -86,20 +92,30 @@ describe('undo', () => {
   it('does not wipe a cell someone changed afterwards', () => {
     let g = initGame(heart);
     g = drag(g, 'fill', [5, 6], 0);
-    // Partner overwrites cell 6 with an X (arrives as a stroke not on our undo stack).
+    // Partner overwrites cell 6 with an X (arrives from the server, not on our undo stack).
     const partner: Cell = { s: 2, by: 1 };
-    g = { ...g, cells: g.cells.map((c, i) => (i === 6 ? partner : c)) };
-    g = gameReducer(g, { type: 'undo', by: 0 });
+    g = gameReducer(g, { type: 'remote', changes: [{ i: 6, prev: g.cells[6], next: partner }] });
+    expect(g.undo).toHaveLength(1);
+    g = undo(g);
     expect(g.cells[5].s).toBe(0);
     expect(g.cells[6]).toEqual(partner);
   });
 
   it('undoes start over', () => {
     let g = drag(initGame(heart), 'fill', [5, 6, 7]);
-    g = gameReducer(g, { type: 'clear', by: 0 });
+    g = clear(g);
     expect(g.cells.every((c) => c.s === 0)).toBe(true);
-    g = gameReducer(g, { type: 'undo', by: 0 });
+    g = undo(g);
     expect(g.cells.slice(5, 8).map((c) => c.s)).toEqual([1, 1, 1]);
+  });
+});
+
+describe('remote changes', () => {
+  it('can finish the puzzle for both players', () => {
+    let g = drag(initGame(heart), 'fill', solutionCells().slice(0, -1));
+    const last = solutionCells().slice(-1)[0];
+    g = gameReducer(g, { type: 'remote', changes: [{ i: last, prev: g.cells[last], next: { s: 1, by: 1 } }] });
+    expect(g.solved).toBe(true);
   });
 });
 
@@ -113,11 +129,12 @@ describe('check, hint, win', () => {
   });
 
   it('hint fills a correct cell and is undoable', () => {
-    let g = gameReducer(initGame(heart), { type: 'hint', by: 1, rand: () => 0 });
+    let g = initGame(heart);
+    g = gameReducer(g, { type: 'local', stroke: { by: 1, changes: [hintChange(heart, g.cells, 1, () => 0)!] } });
     const i = g.cells.findIndex((c) => c.s === 1);
     expect(heart.solution[i]).toBe(1);
     expect(g.cells[i].by).toBe(1);
-    g = gameReducer(g, { type: 'undo', by: 1 });
+    g = undo(g);
     expect(g.cells[i].s).toBe(0);
   });
 
@@ -129,7 +146,7 @@ describe('check, hint, win', () => {
     expect(g.solved).toBe(true);
     const after = drag(g, 'fill', [0]);
     expect(after).toBe(g);
-    expect(gameReducer(g, { type: 'undo', by: 0 })).toBe(g);
+    expect(gameReducer(g, { type: 'undo', changes: [] })).toBe(g);
   });
 
   it('counts X marks as blank for clues and wins', () => {
