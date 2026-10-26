@@ -195,6 +195,8 @@ don't let web apps vibrate), light/dark/match phone, install help, and sign out.
      `art` folder, click **Add file → Upload files**, drop in the PNG, and click
      **Commit changes**. Vercel rebuilds, and the puzzle appears in a minute or two.
    - **On your computer:** put the PNG in `art/` and run `npm run art`.
+   **Never edit or rename a picture that's already in the app**: saved progress is tied to each
+   puzzle's file name and picture. Add new files instead. (`npm test` checks this.)
 3. Every puzzle must have exactly one answer that can be reached by logic alone. Pictures that
    don't are skipped with a note such as *"it has more than one answer (stuck cells are in rows
    3, 4). Change a pixel or two there."* Locally, the note prints in Terminal. On Vercel, open
@@ -222,6 +224,7 @@ npm test           # unit, component and database tests
 npm run typecheck  # TypeScript
 npm run build      # rebuild puzzles from /art, typecheck, production build into dist/
 npm run art        # rebuild src/puzzles/library.json from /art
+npm run release-puzzles  # lock new puzzles so tests catch any later change to them
 npm run icons      # redraw the app icons
 ```
 
