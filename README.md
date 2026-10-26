@@ -62,6 +62,7 @@ The database setup lives in `supabase/migrations`. Run each file **once, in name
 
 1. `20261025000100_cellmates.sql` (tables, guest list, security rules)
 2. `20261026000100_live_coop.sql` (live updates)
+3. `20261027000100_chat.sql` (chat)
 
 For each one: in Terminal, in the project folder, copy it to the clipboard:
 ```bash
@@ -179,6 +180,13 @@ moves sync when you're back online.
   phones. A phone that goes offline keeps its moves and sends them when it's back.
 - Each cell remembers who filled it, so finished pictures in the **Gallery** show who did what.
 
+**Chat:** the round speech-bubble button at the bottom right opens your conversation. Messages
+arrive instantly, show which puzzle they were sent from (tap the 🧩 tag to jump there), and
+can be reacted to by tapping a bubble (❤️ 😂 👏 🤔). You'll see "typing…", "Seen", an unread badge,
+and a short preview when a message arrives while the chat is closed. Messages written offline
+are sent when you're back online. Only the two of you can read them. Chat reaches the other
+person while their app is open; there are no phone notifications yet.
+
 **Settings** (gear icon, per device): sound (off by default), vibration (Android only; iPhones
 don't let web apps vibrate), light/dark/match phone, install help, and sign out.
 
@@ -190,6 +198,8 @@ don't let web apps vibrate), light/dark/match phone, install help, and sign out.
      the same size, e.g. 16 pixels per cell).
    - Dark pixels are filled cells. White or transparent pixels are blank.
    - The file name becomes the puzzle name: `our-dog.png` becomes "Our dog".
+   - To be sure of the size, put it in the name: `our-dog@15.png` (the `@15` isn't shown).
+     Without it, a chunky drawing made of 2×2 blocks can come out as a smaller puzzle.
 2. Add it to the `art` folder in one of two ways:
    - **Easiest (no computer setup):** on github.com open the `NonoBud` repository, go into the
      `art` folder, click **Add file → Upload files**, drop in the PNG, and click
@@ -212,6 +222,7 @@ don't let web apps vibrate), light/dark/match phone, install help, and sign out.
 | "That email and password don't match." | Check for typos, or use **Forgot your password?**. |
 | The password-reset link doesn't sign you in | Open the link on the same phone and browser where you asked for it, and check the address is in Supabase's **Redirect URLs**. |
 | "YSL is here" never shows, but moves still sync | Check the second migration (`…_live_coop.sql`) was run. |
+| No chat button, or messages never send | Check the third migration (`…_chat.sql`) was run. The chat button only appears when signed in. |
 | The installed app looks out of date | Close it fully and reopen it. |
 | A Vercel deploy failed | Vercel keeps the previous version online. Open the failed deployment's log, or send it to whoever is helping you. |
 | "Something went wrong" screen | Tap **Reload**. Your moves are already saved. |
@@ -236,7 +247,8 @@ stand-in for Supabase's `auth` schema, so the security rules are checked without
 | `src/solver` | Line solver, grid solver, uniqueness search, seeded random generator. No React. |
 | `src/game` | Board rules: strokes, undo (own moves only), check, hint, win. No React. |
 | `src/sync` | Device cache (IndexedDB), offline outbox, hybrid-clock last-write-wins merge, Supabase calls. |
-| `src/realtime` | Live board updates (Postgres changes), presence and invites (private channel). |
+| `src/realtime` | Live board updates (Postgres changes), presence, invites and typing (private channel). |
+| `src/chat` | Chat: on-device history and outbox, Supabase calls, live updates. |
 | `src/auth` | Sign in, create account, password reset, guest-list check. |
 | `src/components`, `src/screens` | The React UI. |
 | `src/puzzles` | Puzzle library (`library.json` is generated from `/art`). |

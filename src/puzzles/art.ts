@@ -21,7 +21,13 @@ export interface LibraryEntry {
  * puzzle size whose blocks are all one color wins (so a 10×10 drawing saved at
  * 16 pixels per cell reads as 10×10).
  */
-export function imageToSolution(width: number, height: number, rgba: ArrayLike<number>): { n: number; solution: number[] } {
+export function imageToSolution(
+  width: number,
+  height: number,
+  rgba: ArrayLike<number>,
+  /** Force a size (from a file name like `sun@10.png`) instead of guessing. */
+  forceN?: number,
+): { n: number; solution: number[] } {
   if (width !== height) throw new Error(`image is ${width}×${height}; it must be square`);
   const dark = (x: number, y: number) => {
     const i = (y * width + x) * 4;
@@ -40,6 +46,11 @@ export function imageToSolution(width: number, height: number, rgba: ArrayLike<n
     }
     return out;
   };
+  if (forceN !== undefined) {
+    const s = width % forceN === 0 ? sample(forceN) : null;
+    if (!s) throw new Error(`image doesn't divide evenly into ${forceN}×${forceN} cells`);
+    return { n: forceN, solution: s };
+  }
   if ((PUZZLE_SIZES as readonly number[]).includes(width)) return { n: width, solution: sample(width)! };
   for (const n of PUZZLE_SIZES) {
     if (width % n) continue;
@@ -72,6 +83,12 @@ export function toRows(n: number, solution: number[]): string[] {
   const rows: string[] = [];
   for (let y = 0; y < n; y++) rows.push(solution.slice(y * n, y * n + n).map((v) => (v ? '#' : '.')).join(''));
   return rows;
+}
+
+/** "sun@10" -> { base: "sun", n: 10 }: an optional size in the file name. */
+export function splitSize(file: string): { base: string; n?: number } {
+  const m = file.match(/^(.*)@(5|10|15|20)$/);
+  return m ? { base: m[1], n: Number(m[2]) } : { base: file };
 }
 
 /** "big-heart" -> "Big heart" */

@@ -7,6 +7,9 @@
  * - Square, and 5, 10, 15 or 20 pixels wide (or scaled up evenly, e.g. 16 px per cell).
  * - Dark pixels are filled cells. White or transparent pixels are blank.
  * - The file name becomes the puzzle name: "big-heart.png" -> "Big heart".
+ * - Scaled-up pictures are read at the smallest size that fits, so a chunky
+ *   drawing made of 2×2 blocks would come out as a smaller puzzle. Put the size
+ *   in the name to be sure, e.g. "sun@10.png" (the "@10" isn't part of the name).
  *
  * Each picture is checked: it must have exactly one answer and be solvable
  * without guessing. Pictures that fail are skipped with a note saying which
@@ -18,7 +21,7 @@
 import { readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { basename, join } from 'node:path';
 import { PNG } from 'pngjs';
-import { checkPicture, imageToSolution, nameFromFile, slug, toRows, type LibraryEntry } from '../src/puzzles/art';
+import { checkPicture, imageToSolution, nameFromFile, slug, splitSize, toRows, type LibraryEntry } from '../src/puzzles/art';
 
 const ART = 'art';
 const OUT = 'src/puzzles/library.json';
@@ -32,10 +35,10 @@ const problems: string[] = [];
 const ids = new Set<string>();
 
 for (const file of files) {
-  const base = basename(file, '.png');
+  const { base, n: forceN } = splitSize(basename(file, '.png'));
   try {
     const png = PNG.sync.read(readFileSync(join(ART, file)));
-    const { n, solution } = imageToSolution(png.width, png.height, png.data);
+    const { n, solution } = imageToSolution(png.width, png.height, png.data, forceN);
     const verdict = checkPicture(n, solution);
     if (!verdict.ok) {
       problems.push(`${file}: skipped, ${verdict.reason}`);

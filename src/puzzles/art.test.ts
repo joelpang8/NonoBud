@@ -1,5 +1,5 @@
 import { cluesFor, parseRows, solveGrid } from '../solver';
-import { checkPicture, imageToSolution, nameFromFile, slug, toRows } from './art';
+import { checkPicture, imageToSolution, nameFromFile, slug, splitSize, toRows } from './art';
 import entries from './library.json';
 
 /** Build RGBA pixels from text rows, scaled up by `k` pixels per cell. */
@@ -18,11 +18,19 @@ const HEART = ['.#.#.', '#####', '#####', '.###.', '..#..'];
 
 describe('imageToSolution', () => {
   it('reads one pixel per cell', () => {
-    expect(imageToSolution(5, 5, rgba(HEART))).toEqual(parseRows(HEART));
+    expect(imageToSolution(5, 5, rgba(HEART))).toMatchObject(parseRows(HEART));
   });
 
   it('reads scaled-up pixel art', () => {
-    expect(imageToSolution(80, 80, rgba(HEART, 16))).toEqual(parseRows(HEART));
+    expect(imageToSolution(80, 80, rgba(HEART, 16))).toMatchObject(parseRows(HEART));
+  });
+
+  it('reads chunky pictures at the smallest size unless the file name says otherwise', () => {
+    const blocky = HEART.flatMap((r) => [r.replace(/./g, (c) => c + c), r.replace(/./g, (c) => c + c)]); // a 10×10 drawn in 2×2 blocks
+    expect(imageToSolution(160, 160, rgba(blocky, 16)).n).toBe(5);
+    expect(imageToSolution(160, 160, rgba(blocky, 16), 10).n).toBe(10);
+    expect(splitSize('sun@10')).toEqual({ base: 'sun', n: 10 });
+    expect(splitSize('big-heart')).toEqual({ base: 'big-heart' });
   });
 
   it('treats transparent pixels as blank', () => {
