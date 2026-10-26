@@ -131,7 +131,7 @@ describe('live co-op', () => {
 
   it('publishes board changes to realtime', async () => {
     const rows = await as<{ tablename: string }>(JOEL, `select tablename from pg_publication_tables where pubname = 'supabase_realtime' order by 1`);
-    expect(rows.map((r) => r.tablename)).toEqual(['board_cells', 'boards']);
+    expect(rows.map((r) => r.tablename)).toEqual(expect.arrayContaining(['board_cells', 'boards']));
   });
 
   it('lets only members use the presence and invite channel', async () => {
@@ -139,6 +139,73 @@ describe('live co-op', () => {
     expect(await as(YSL, `select * from realtime.messages`)).toHaveLength(1);
     expect(await as('stranger@example.com', `select * from realtime.messages`)).toHaveLength(0);
     await expect(as('stranger@example.com', `insert into realtime.messages (topic, extension, event) values ('cellmates', 'broadcast', 'invite')`)).rejects.toThrow(/row-level security/);
+  });
+});
+
+describe('chat', () => {
+  const MSG1 = '00000000-0000-4000-8000-000000000001';
+  const MSG2 = '00000000-0000-4000-8000-000000000002';
+  const send = (email: string | null, id: string, body: string, author = 0) =>
+    as(email, `insert into public.messages (id, author, body, puzzle_id, puzzle_n) values ($1, $2, $3, 'p5-heart', 5) on conflict (id) do nothing`, [id, author, body]);
+
+  it('lets members write and read messages', async () => {
+    await send(JOEL, MSG1, 'hi YSL');
+    const rows = await as<{ body: string; author: number }>(YSL, `select body, author from public.messages`);
+    expect(rows).toEqual([{ body: 'hi YSL', author: 0 }]);
+  });
+
+  it('stamps the real author, whatever the app claims', async () => {
+    await send(YSL, MSG2, 'pretending to be Joel', 0);
+    const [m] = await as<{ author: number }>(JOEL, `select author from public.messages where id = $1`, [MSG2]);
+    expect(m.author).toBe(1);
+  });
+
+  it('ignores a resend of the same message', async () => {
+    await send(JOEL, MSG1, 'hi YSL');
+    expect(await as(JOEL, `select * from public.messages`)).toHaveLength(2);
+  });
+
+  it('rejects empty and huge messages', async () => {
+    await expect(send(JOEL, '00000000-0000-4000-8000-000000000003', '   ')).rejects.toThrow(/check constraint/);
+    await expect(send(JOEL, '00000000-0000-4000-8000-000000000004', 'x'.repeat(2001))).rejects.toThrow(/check constraint/);
+  });
+
+  it('keeps messages from strangers and logged-out visitors', async () => {
+    expect(await as('stranger@example.com', `select * from public.messages`)).toHaveLength(0);
+    await expect(send('stranger@example.com', '00000000-0000-4000-8000-000000000005', 'hello?')).rejects.toThrow();
+    await expect(as(null, `select * from public.messages`)).rejects.toThrow(/permission denied/);
+    await expect(as(YSL, `delete from public.messages`)).resolves.toBeDefined();
+    expect(await as(JOEL, `select * from public.messages`)).toHaveLength(2); // nobody can delete
+  });
+
+  it('one reaction per person per message, and only your own', async () => {
+    const react = (email: string, emoji: string | null, player = 0) =>
+      as(email, `insert into public.message_reactions (message_id, player, emoji) values ($1, $2, $3)
+                 on conflict (message_id, player) do update set emoji = excluded.emoji`, [MSG1, player, emoji]);
+    await react(YSL, '❤️', 0); // claims to be Joel; stamped as YSL
+    await react(YSL, '😂');
+    await react(JOEL, '👏');
+    const rows = await as<{ player: number; emoji: string }>(JOEL, `select player, emoji from public.message_reactions order by player`);
+    expect(rows).toEqual([
+      { player: 0, emoji: '👏' },
+      { player: 1, emoji: '😂' },
+    ]);
+    await expect(react(JOEL, '💩')).rejects.toThrow(/check constraint/);
+  });
+
+  it('read markers belong to their owner', async () => {
+    const mark = (email: string, at: string) =>
+      as(email, `insert into public.chat_reads (player, last_read_at) values (0, $1)
+                 on conflict (player) do update set last_read_at = excluded.last_read_at`, [at]);
+    await mark(JOEL, '2026-10-27T10:00:00Z');
+    await mark(YSL, '2026-10-27T11:00:00Z');
+    const rows = await as<{ player: number }>(JOEL, `select player from public.chat_reads order by player`);
+    expect(rows.map((r) => r.player)).toEqual([0, 1]);
+  });
+
+  it('publishes chat to realtime', async () => {
+    const rows = await as<{ tablename: string }>(JOEL, `select tablename from pg_publication_tables where pubname = 'supabase_realtime' order by 1`);
+    expect(rows.map((r) => r.tablename)).toEqual(['board_cells', 'boards', 'chat_reads', 'message_reactions', 'messages']);
   });
 });
 
