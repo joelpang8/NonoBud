@@ -1,7 +1,8 @@
 import type { RealtimeChannel, SupabaseClient } from '@supabase/supabase-js';
 import type { CellState, Player } from '../game';
 import type { BoardMeta, RemoteCell } from '../sync';
-import type { BoardHandlers, Invite, PresenceHandlers, PresenceInfo, PresenceSession, Realtime } from './types';
+import { messageFromRow, reactionFromRow, readFromRow, type MessageRow } from '../chat/remote';
+import type { BoardHandlers, ChatHandlers, Invite, PresenceHandlers, PresenceInfo, PresenceSession, Realtime } from './types';
 
 const PRESENCE_TOPIC = 'cellmates-presence';
 
@@ -75,6 +76,22 @@ export function createSupabaseRealtime(sb: SupabaseClient): Realtime {
       return () => void sb.removeChannel(channel);
     },
 
+    watchChat(h: ChatHandlers) {
+      const channel = sb
+        .channel('chat')
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, (p) => h.onMessage(messageFromRow(p.new as MessageRow)))
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'message_reactions' }, (p) => {
+          if (p.eventType !== 'DELETE') h.onReaction(reactionFromRow(p.new as { message_id: string; player: number; emoji: string | null }));
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'chat_reads' }, (p) => {
+          if (p.eventType !== 'DELETE') h.onRead(readFromRow(p.new as { player: number; last_read_at: string }));
+        })
+        .subscribe((status) => {
+          if (status === 'SUBSCRIBED') h.onConnected();
+        });
+      return () => void sb.removeChannel(channel);
+    },
+
     joinPresence(me: PresenceInfo, h: PresenceHandlers): PresenceSession {
       let info = me;
       const channel = sb.channel(PRESENCE_TOPIC, {
@@ -84,6 +101,7 @@ export function createSupabaseRealtime(sb: SupabaseClient): Realtime {
       channel
         .on('presence', { event: 'sync' }, () => h.onPeers(peersFrom(channel.presenceState<PresenceInfo & { at?: number }>())))
         .on('broadcast', { event: 'invite' }, ({ payload }) => h.onInvite(payload as Invite))
+        .on('broadcast', { event: 'typing' }, ({ payload }) => h.onTyping?.((payload as { player: Player }).player))
         .subscribe((status) => {
           const ok = status === 'SUBSCRIBED';
           h.onConnected(ok);
@@ -96,6 +114,9 @@ export function createSupabaseRealtime(sb: SupabaseClient): Realtime {
         },
         invite(inv) {
           void channel.send({ type: 'broadcast', event: 'invite', payload: inv });
+        },
+        typing() {
+          void channel.send({ type: 'broadcast', event: 'typing', payload: { player: me.player } });
         },
         leave() {
           void sb.removeChannel(channel);

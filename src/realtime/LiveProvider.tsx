@@ -15,10 +15,23 @@ interface Live {
   invite: (puzzle: { puzzleId: string; n: number; seed: number | null }) => void;
   incoming: Invite | null;
   dismissInvite: () => void;
+  /** Tell the other person you're typing a chat message. */
+  typing: () => void;
+  /** Listen for the other person typing. */
+  onPartnerTyping: (fn: () => void) => () => void;
 }
 
 const NOBODY: Pick<PresenceInfo, 'puzzleId' | 'n' | 'seed'> = { puzzleId: null, n: null, seed: null };
-const Ctx = createContext<Live>({ realtime: null, partner: null, showing: () => {}, invite: () => {}, incoming: null, dismissInvite: () => {} });
+const Ctx = createContext<Live>({
+  realtime: null,
+  partner: null,
+  showing: () => {},
+  invite: () => {},
+  incoming: null,
+  dismissInvite: () => {},
+  typing: () => {},
+  onPartnerTyping: () => () => {},
+});
 export const useLive = () => useContext(Ctx);
 
 export function LiveProvider({ children }: { children: ReactNode }) {
@@ -29,6 +42,7 @@ export function LiveProvider({ children }: { children: ReactNode }) {
   const [incoming, setIncoming] = useState<Invite | null>(null);
   const session = useRef<PresenceSession | null>(null);
   const screen = useRef(NOBODY);
+  const typingListeners = useRef(new Set<() => void>());
 
   useEffect(() => {
     if (!realtime || me === null) return;
@@ -36,6 +50,7 @@ export function LiveProvider({ children }: { children: ReactNode }) {
       onPeers: (peers) => setPartner(peers.find((p) => p.player !== me) ?? null),
       onInvite: (inv) => inv.from !== me && setIncoming(inv),
       onConnected: (ok) => !ok && setPartner(null),
+      onTyping: (p) => p !== me && typingListeners.current.forEach((fn) => fn()),
     });
     session.current = s;
     return () => {
@@ -60,9 +75,17 @@ export function LiveProvider({ children }: { children: ReactNode }) {
     [me],
   );
 
+  const typing = useCallback(() => session.current?.typing(), []);
+  const onPartnerTyping = useCallback((fn: () => void) => {
+    typingListeners.current.add(fn);
+    return () => {
+      typingListeners.current.delete(fn);
+    };
+  }, []);
+
   const value = useMemo(
-    () => ({ realtime, partner, showing, invite, incoming, dismissInvite: () => setIncoming(null) }),
-    [realtime, partner, showing, invite, incoming],
+    () => ({ realtime, partner, showing, invite, incoming, dismissInvite: () => setIncoming(null), typing, onPartnerTyping }),
+    [realtime, partner, showing, invite, incoming, typing, onPartnerTyping],
   );
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

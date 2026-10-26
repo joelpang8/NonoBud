@@ -1,5 +1,6 @@
 import type { BoardMeta, RemoteCell } from '../sync';
-import type { BoardHandlers, Invite, PresenceHandlers, PresenceInfo, PresenceSession, Realtime } from './types';
+import type { ChatMessage, Reaction, ReadMarker } from '../chat/types';
+import type { BoardHandlers, ChatHandlers, Invite, PresenceHandlers, PresenceInfo, PresenceSession, Realtime } from './types';
 
 /**
  * In-memory stand-in for Supabase Realtime, for tests. The fake server calls
@@ -8,6 +9,19 @@ import type { BoardHandlers, Invite, PresenceHandlers, PresenceInfo, PresenceSes
 export class FakeHub {
   private boards = new Map<string, Set<BoardHandlers>>();
   private members = new Map<PresenceHandlers, PresenceInfo>();
+  private chats = new Set<ChatHandlers>();
+
+  publishMessage(m: ChatMessage): void {
+    if (this.connected) this.chats.forEach((h) => h.onMessage(m));
+  }
+
+  publishReaction(r: Reaction): void {
+    if (this.connected) this.chats.forEach((h) => h.onReaction(r));
+  }
+
+  publishRead(r: ReadMarker): void {
+    if (this.connected) this.chats.forEach((h) => h.onRead(r));
+  }
   /** When false, nothing is delivered (simulates a dropped connection). */
   connected = true;
 
@@ -23,6 +37,7 @@ export class FakeHub {
   reconnect(): void {
     this.connected = true;
     this.boards.forEach((set) => set.forEach((h) => h.onConnected()));
+    this.chats.forEach((h) => h.onConnected());
   }
 
   client(): Realtime {
@@ -33,6 +48,11 @@ export class FakeHub {
         set.add(h);
         h.onConnected();
         return () => set!.delete(h);
+      },
+      watchChat: (h) => {
+        this.chats.add(h);
+        h.onConnected();
+        return () => this.chats.delete(h);
       },
       joinPresence: (me, h): PresenceSession => {
         this.members.set(h, me);
@@ -48,6 +68,7 @@ export class FakeHub {
             sync();
           },
           invite: (inv: Invite) => this.members.forEach((_, m) => m !== h && m.onInvite(inv)),
+          typing: () => this.members.forEach((_, m) => m !== h && m.onTyping?.(me.player)),
           leave: () => {
             this.members.delete(h);
             sync();

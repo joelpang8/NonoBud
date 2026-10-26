@@ -4,7 +4,7 @@ import { canVibrate, getSettings } from './settings';
  * Small touches of sound and vibration. Sounds are synthesized (no audio files),
  * vibration uses the Vibration API (Android; iPhones don't offer it to web apps).
  */
-export type Feel = 'fill' | 'mark' | 'erase' | 'win' | 'oops';
+export type Feel = 'fill' | 'mark' | 'erase' | 'win' | 'oops' | 'message';
 
 let ctx: AudioContext | null = null;
 
@@ -39,6 +39,7 @@ const SOUNDS: Record<Feel, () => void> = {
   erase: () => tone(330, 0, 0.05, 0.05),
   oops: () => (tone(300, 0, 0.09, 0.07), tone(240, 0.09, 0.12, 0.07)),
   win: () => [523, 659, 784, 1047].forEach((f, i) => tone(f, i * 0.11, 0.35, 0.09)),
+  message: () => (tone(880, 0, 0.08, 0.06), tone(1175, 0.08, 0.12, 0.06)),
 };
 
 const BUZZ: Record<Feel, number | number[]> = {
@@ -47,6 +48,7 @@ const BUZZ: Record<Feel, number | number[]> = {
   erase: 5,
   oops: [30, 40, 30],
   win: [20, 60, 20, 60, 60],
+  message: [15, 50, 15],
 };
 
 export function feel(kind: Feel): void {
