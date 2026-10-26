@@ -8,6 +8,7 @@ import '@fontsource/dm-sans/700.css';
 import './styles/app.css';
 import App from './App';
 import { AuthGate } from './auth/AuthGate';
+import { ChatProvider } from './chat/ChatProvider';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { applyTheme, getSettings } from './lib/settings';
 import { LiveProvider } from './realtime/LiveProvider';
@@ -21,7 +22,9 @@ createRoot(document.getElementById('root')!).render(
       <AuthGate>
         <SyncProvider>
           <LiveProvider>
-            <App />
+            <ChatProvider>
+              <App />
+            </ChatProvider>
           </LiveProvider>
         </SyncProvider>
       </AuthGate>

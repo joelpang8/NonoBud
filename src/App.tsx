@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo } from 'react';
 import { useAuth } from './auth/AuthGate';
+import { Chat } from './components/Chat';
 import { InviteBanner } from './components/InviteBanner';
 import { newRandomPuzzle, puzzleFromGenerated, type Puzzle } from './game';
 import { useHashRoute, type Route } from './hooks/useHashRoute';
@@ -71,6 +72,7 @@ export default function App() {
       ) : (
         <Home player={player} onPlayer={setPlayer} go={go} onRandom={playRandom} />
       )}
+      <Chat puzzle={puzzle} go={go} />
     </main>
   );
 }
