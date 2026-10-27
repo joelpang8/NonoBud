@@ -171,6 +171,26 @@ describe('sync engine', () => {
     expect(server.cells.get(HEART.id)!.size).toBe(0);
   });
 
+  it('keeps syncing other boards when the server refuses one', async () => {
+    const server = new FakeServer();
+    const joel = await device(server, 0);
+    const realApply = joel.remote.applyMoves.bind(joel.remote);
+    joel.remote.applyMoves = (op) => (op.puzzleId === 'p30-big' ? Promise.reject(new Error('violates check constraint')) : realApply(op));
+    const big = { id: 'p30-big', n: 30 };
+    joel.engine.open(big);
+    joel.engine.applyLocal(big.id, [{ i: 0, prev: { s: 0, by: null }, next: { s: 1, by: 0 } }]);
+    play(joel, [3]);
+    await sync(joel);
+    expect(server.cells.get(HEART.id)?.has(3)).toBe(true);
+    expect(joel.engine.getSnapshot().status).toBe('error');
+    expect(joel.engine.getSnapshot().pending).toBeGreaterThan(0);
+    // Once the server accepts it (e.g. after the new migration), the waiting moves go through.
+    joel.remote.applyMoves = realApply;
+    await joel.engine.flush();
+    expect(server.cells.get('p30-big')?.has(0)).toBe(true);
+    expect(joel.engine.getSnapshot().status).toBe('synced');
+  });
+
   it('records solves for the level list and gallery on both devices', async () => {
     const server = new FakeServer();
     const joel = await device(server, 0);

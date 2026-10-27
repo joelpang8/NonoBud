@@ -286,10 +286,14 @@ export class SyncEngine {
   private async runFlush(): Promise<void> {
     const remote = this.remote!;
     await this.settled();
+    // Boards whose work the server refused this round (e.g. a size it doesn't accept yet).
+    // Their work stays queued and is retried later; other boards keep syncing meanwhile.
+    const blocked = new Set<string>();
+    let refused: unknown = null;
     try {
       for (;;) {
-        const queue = await this.cache.queued();
-        this.pending = queue.length;
+        const queue = (await this.cache.queued()).filter((q) => !blocked.has(q.op.puzzleId));
+        this.pending = queue.length + blocked.size;
         if (!queue.length) break;
         this.setStatus('syncing', this.error);
 
@@ -302,9 +306,17 @@ export class SyncEngine {
           op = { ...op, seconds: Math.max(op.seconds, q.op.seconds), moves: [...op.moves, ...q.op.moves] };
           keys.push(q.key);
         }
-        await this.send(remote, op);
+        try {
+          await this.send(remote, op);
+        } catch (e) {
+          if (e instanceof OfflineError) throw e;
+          blocked.add(op.puzzleId);
+          refused = e;
+          continue;
+        }
         await this.cache.dequeue(keys);
       }
+      if (refused) throw refused;
       this.backoff = 0;
       this.pending = 0;
       this.setStatus('synced', null);
