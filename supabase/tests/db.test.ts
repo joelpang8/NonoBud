@@ -209,6 +209,24 @@ describe('chat', () => {
   });
 });
 
+describe('bigger boards', () => {
+  it('accepts 25×25 and 30×30 boards, including the last cell of a 30×30', async () => {
+    await as(JOEL, `select public.apply_moves('p30-test', 30::smallint, null, 0, 0, '[{"i":899,"s":1,"o":0,"v":1}]'::jsonb)`);
+    const [c] = await as<{ idx: number }>(JOEL, `select idx from public.board_cells where puzzle_id = 'p30-test'`);
+    expect(c.idx).toBe(899);
+    await as(JOEL, `select public.apply_moves('p25-test', 25::smallint, null, 0, 0, '[]'::jsonb)`);
+  });
+
+  it('still rejects sizes that don\'t exist', async () => {
+    await expect(as(JOEL, `select public.apply_moves('bad', 12::smallint, null, 0, 0, '[]'::jsonb)`)).rejects.toThrow(/check constraint/);
+    await expect(as(JOEL, `select public.apply_moves('p30-test', 30::smallint, null, 0, 0, '[{"i":900,"s":1,"o":0,"v":2}]'::jsonb)`)).rejects.toThrow(/check constraint/);
+  });
+
+  afterAll(async () => {
+    await as(JOEL, `delete from public.boards where puzzle_id in ('p30-test', 'p25-test')`);
+  });
+});
+
 describe('solving and playing again', () => {
   it('records a solve and marks the board solved', async () => {
     await as(YSL, `select public.record_solve('p5-heart', 0, 'Heart', 5::smallint, null, 61, '..0..', true)`);
