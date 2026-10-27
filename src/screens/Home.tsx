@@ -18,6 +18,8 @@ const SUBTITLES: Record<Size, string> = {
   10: 'About fifteen minutes',
   15: 'Settle in for a while',
   20: 'A long evening',
+  25: 'A big one: zoom in on phones',
+  30: 'The epic ones: bring snacks',
 };
 
 interface HomeProps {

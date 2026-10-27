@@ -260,7 +260,9 @@ h2 {
 }
 .stage {
   display: flex;
-  justify-content: center;
+  /* 'safe' keeps the left edge (the row clues) reachable if a board is ever wider than the screen. */
+  justify-content: safe center;
+  overflow-x: auto;
   margin: 6px 0 12px;
 }
 .stage.zoomed {

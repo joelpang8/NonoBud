@@ -3,7 +3,7 @@ import { parseRows } from '../solver';
 import type { LibraryEntry } from './art';
 import entries from './library.json';
 
-export const SIZES = [5, 10, 15, 20] as const;
+export const SIZES = [5, 10, 15, 20, 25, 30] as const;
 export type Size = (typeof SIZES)[number];
 
 /** Built from /art by `npm run art`. Every entry is checked to be fair when it is generated. */

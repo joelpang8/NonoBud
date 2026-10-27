@@ -1,6 +1,6 @@
 import { cluesFor, findSolutions, solveGrid } from '../solver';
 
-export const PUZZLE_SIZES = [5, 10, 15, 20] as const;
+export const PUZZLE_SIZES = [5, 10, 15, 20, 25, 30] as const;
 
 /** One library entry as stored in library.json. */
 export interface LibraryEntry {
@@ -16,7 +16,7 @@ export interface LibraryEntry {
 /**
  * Read a picture into a solution grid. Dark, mostly opaque pixels are filled.
  *
- * The image must be square. If it is 5, 10, 15 or 20 pixels wide, each pixel is
+ * The image must be square. If it is 5, 10, 15, 20, 25 or 30 pixels wide, each pixel is
  * one cell. Larger images are treated as scaled-up pixel art: the smallest
  * puzzle size whose blocks are all one color wins (so a 10×10 drawing saved at
  * 16 pixels per cell reads as 10×10).
@@ -57,7 +57,7 @@ export function imageToSolution(
     const s = sample(n);
     if (s) return { n, solution: s };
   }
-  throw new Error(`image is ${width}px wide; use 5, 10, 15 or 20 pixels (or a clean multiple, like 16 pixels per cell)`);
+  throw new Error(`image is ${width}px wide; use 5, 10, 15, 20, 25 or 30 pixels (or a clean multiple, like 16 pixels per cell)`);
 }
 
 export type Verdict =
@@ -87,7 +87,7 @@ export function toRows(n: number, solution: number[]): string[] {
 
 /** "sun@10" -> { base: "sun", n: 10 }: an optional size in the file name. */
 export function splitSize(file: string): { base: string; n?: number } {
-  const m = file.match(/^(.*)@(5|10|15|20)$/);
+  const m = file.match(/^(.*)@(5|10|15|20|25|30)$/);
   return m ? { base: m[1], n: Number(m[2]) } : { base: file };
 }
 

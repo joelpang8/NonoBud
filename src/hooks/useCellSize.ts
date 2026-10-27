@@ -2,9 +2,12 @@ import { useLayoutEffect, useState, type RefObject } from 'react';
 import type { Puzzle } from '../game';
 
 const MAX = 38;
-const MIN = 14;
+/** Small enough that a 30×30 board fits a phone as an overview. */
+const MIN = 8;
 /** Below this, cells are hard to hit with a finger, so the zoom button is offered. */
 export const COMFORTABLE = 22;
+/** Below this, cells are too small to tap at all, so the board opens zoomed in. */
+const TOO_SMALL = 13;
 const ZOOMED = 30;
 
 /** Width a row's clue numbers take, in cell units (same estimate as the prototype). */
@@ -15,6 +18,11 @@ function clueWidth(p: Puzzle): number {
 /** Pick a cell size that fits the board to the available width. */
 export function fitCellSize(avail: number, p: Puzzle): number {
   return Math.max(MIN, Math.floor(Math.min(MAX, (avail - 6) / (p.n + clueWidth(p)))));
+}
+
+/** Big boards on narrow screens start zoomed in; "Fit to screen" shows the whole picture. */
+export function startsZoomed(p: Puzzle): boolean {
+  return fitCellSize(Math.min(window.innerWidth, 640) - 32, p) < TOO_SMALL;
 }
 
 export function useCellSize(stage: RefObject<HTMLElement | null>, puzzle: Puzzle, zoomed: boolean) {

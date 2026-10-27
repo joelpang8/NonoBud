@@ -39,7 +39,7 @@ describe('imageToSolution', () => {
 
   it('rejects non-square and odd-sized images', () => {
     expect(() => imageToSolution(5, 6, new Uint8Array(5 * 6 * 4))).toThrow(/square/);
-    expect(() => imageToSolution(7, 7, new Uint8Array(7 * 7 * 4))).toThrow(/5, 10, 15 or 20/);
+    expect(() => imageToSolution(7, 7, new Uint8Array(7 * 7 * 4))).toThrow(/5, 10, 15, 20, 25 or 30/);
   });
 });
 

@@ -63,6 +63,7 @@ The database setup lives in `supabase/migrations`. Run each file **once, in name
 1. `20261025000100_cellmates.sql` (tables, guest list, security rules)
 2. `20261026000100_live_coop.sql` (live updates)
 3. `20261027000100_chat.sql` (chat)
+4. `20261028000100_bigger_boards.sql` (25×25 and 30×30 puzzles)
 
 For each one: in Terminal, in the project folder, copy it to the clipboard:
 ```bash
@@ -167,6 +168,7 @@ moves sync when you're back online.
   **Hint** fills one correct cell, **Start over** clears the board (it asks first if that would
   clear your partner's cells too).
 - **Big boards on phones:** **Zoom in** makes cells bigger; scroll by swiping on the clue numbers.
+  25×25 and 30×30 open zoomed in on phones; **Fit to screen** shows the whole picture.
 - **Keyboard:** Tab to the grid, arrow keys move, Space or Enter fills, X marks, Delete clears,
   Shift+arrows repeat the last action along the way.
 
@@ -194,7 +196,7 @@ don't let web apps vibrate), light/dark/match phone, install help, and sign out.
 
 1. Draw a small black-and-white picture in a pixel-art app (free:
    [Piskel](https://www.piskelapp.com), [Pixilart](https://www.pixilart.com)).
-   - Square: **5×5, 10×10, 15×15 or 20×20** pixels (bigger exports are fine if every cell is
+   - Square: **5×5, 10×10, 15×15, 20×20, 25×25 or 30×30** pixels (bigger exports are fine if every cell is
      the same size, e.g. 16 pixels per cell).
    - Dark pixels are filled cells. White or transparent pixels are blank.
    - The file name becomes the puzzle name: `our-dog.png` becomes "Our dog".
@@ -223,6 +225,7 @@ don't let web apps vibrate), light/dark/match phone, install help, and sign out.
 | The password-reset link doesn't sign you in | Open the link on the same phone and browser where you asked for it, and check the address is in Supabase's **Redirect URLs**. |
 | "YSL is here" never shows, but moves still sync | Check the second migration (`…_live_coop.sql`) was run. |
 | No chat button, or messages never send | Check the third migration (`…_chat.sql`) was run. The chat button only appears when signed in. |
+| 25×25 or 30×30 moves say "Can't sync right now" | Run the fourth migration (`…_bigger_boards.sql`). Moves wait safely on the phone until then. |
 | The installed app looks out of date | Close it fully and reopen it. |
 | A Vercel deploy failed | Vercel keeps the previous version online. Open the failed deployment's log, or send it to whoever is helping you. |
 | "Something went wrong" screen | Tap **Reload**. Your moves are already saved. |

@@ -19,7 +19,7 @@ import {
   type Tool,
 } from '../game';
 import { useActiveTimer } from '../hooks/useActiveTimer';
-import { useCellSize } from '../hooks/useCellSize';
+import { startsZoomed, useCellSize } from '../hooks/useCellSize';
 import { feel } from '../lib/feedback';
 import { formatTime } from '../lib/format';
 import { other, PLAYER_NAMES } from '../lib/players';
@@ -94,7 +94,7 @@ function Play({ puzzle, player, doc, onExit, onNext, onReplay, restartedElsewher
   const [confirmClear, setConfirmClear] = useState(false);
   const [game, dispatch] = useReducer(gameReducer, null, (): GameState => initGame(puzzle, doc.cells.slice()));
   const [tool, setTool] = useState<Tool>('fill');
-  const [zoomed, setZoomed] = useState(false);
+  const [zoomed, setZoomed] = useState(() => startsZoomed(puzzle));
   const [wrong, setWrong] = useState<Set<number>>(new Set());
   const [toast, setToast] = useState(restartedElsewhere ? 'This puzzle was restarted on the other phone.' : '');
   const [showWin, setShowWin] = useState(false);

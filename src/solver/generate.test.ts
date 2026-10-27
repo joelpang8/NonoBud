@@ -3,8 +3,15 @@ import { candidate, generate } from './generate';
 import { solveGrid } from './grid';
 
 describe('generate', () => {
-  it.each([5, 10, 15, 20])('makes fully line-solvable %ix%i puzzles', (n) => {
-    for (let i = 0; i < 200; i++) {
+  it.each([
+    [5, 200],
+    [10, 200],
+    [15, 200],
+    [20, 200],
+    [25, 60],
+    [30, 40],
+  ])('makes fully line-solvable %ix%i puzzles', (n, count) => {
+    for (let i = 0; i < count; i++) {
       const g = generate(n, i * 7919 + n);
       expect(g).not.toBeNull();
       const res = solveGrid({ rows: g!.rows, cols: g!.cols }, n);

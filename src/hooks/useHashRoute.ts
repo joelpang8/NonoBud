@@ -1,3 +1,4 @@
+import { SIZES } from '../puzzles/library';
 import { useCallback, useEffect, useState } from 'react';
 
 export type Route = { name: 'home' } | { name: 'gallery' } | { name: 'settings' } | { name: 'puzzle'; id: string } | { name: 'random'; n: number; seed: number };
@@ -19,7 +20,7 @@ export function parseHash(hash: string): Route {
   if (parts[0] === 'r' && parts[1] && parts[2]) {
     const n = Number(parts[1]);
     const seed = Number(parts[2]);
-    if ([5, 10, 15, 20].includes(n) && Number.isInteger(seed) && seed >= 0) return { name: 'random', n, seed };
+    if ((SIZES as readonly number[]).includes(n) && Number.isInteger(seed) && seed >= 0) return { name: 'random', n, seed };
   }
   return { name: 'home' };
 }
