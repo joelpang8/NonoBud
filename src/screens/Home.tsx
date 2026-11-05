@@ -10,7 +10,7 @@ import type { Route } from '../hooks/useHashRoute';
 import { formatTime } from '../lib/format';
 import { PLAYER_NAMES } from '../lib/players';
 import { puzzleRoute } from '../lib/routes';
-import { LIBRARY, SIZES, type Size } from '../puzzles/library';
+import { LIBRARY, puzzleNumber, SIZES, type Size } from '../puzzles/library';
 import { difficulty } from '../solver';
 
 const SUBTITLES: Record<Size, string> = {
@@ -54,8 +54,14 @@ export function Home({ player, onPlayer, go, onRandom }: HomeProps) {
     return (
       <button type="button" className="card" key={p.id} onClick={() => go({ name: 'puzzle', id: p.id })}>
         <Thumb n={p.n} owners={done?.owners} />
+        <span className="num" aria-hidden="true">
+          #{puzzleNumber(p.id)}
+        </span>
         <span>
-          <b>{done ? p.name : 'Unsolved'}</b>
+          <b>
+            <span className="sr-only">Number {puzzleNumber(p.id)}: </span>
+            {done ? p.name : 'Unsolved'}
+          </b>
           <small>{label}</small>
         </span>
       </button>

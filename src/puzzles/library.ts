@@ -15,3 +15,10 @@ export const LIBRARY: Puzzle[] = (entries as LibraryEntry[]).map((e) => {
 export function findPuzzle(id: string): Puzzle | undefined {
   return LIBRARY.find((p) => p.id === id);
 }
+
+/** A puzzle's number within its size section (#1, #2, …). Stable: new puzzles are added at the end. */
+const NUMBERS = new Map<string, number>();
+for (const n of SIZES) LIBRARY.filter((p) => p.n === n).forEach((p, i) => NUMBERS.set(p.id, i + 1));
+export function puzzleNumber(id: string): number | undefined {
+  return NUMBERS.get(id);
+}

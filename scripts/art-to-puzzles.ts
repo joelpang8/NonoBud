@@ -57,8 +57,11 @@ for (const file of files) {
   }
 }
 
-// Order: by size, then easiest first, then by name.
-entries.sort((a, b) => a.n - b.n || a.passes - b.passes || a.name.localeCompare(b.name));
+// Order: by size, then the order puzzles were released (see released.json), so a
+// puzzle's number in its section never changes. New puzzles go at the end, easiest first.
+const releaseOrder = new Map(Object.keys(JSON.parse(readFileSync('src/puzzles/released.json', 'utf8'))).map((id, i) => [id, i]));
+const rank = (e: LibraryEntry) => releaseOrder.get(e.id) ?? Number.MAX_SAFE_INTEGER;
+entries.sort((a, b) => a.n - b.n || rank(a) - rank(b) || a.passes - b.passes || a.name.localeCompare(b.name));
 writeFileSync(OUT, JSON.stringify(entries, null, 1) + '\n');
 
 console.log(`\nWrote ${entries.length} puzzles to ${OUT}`);

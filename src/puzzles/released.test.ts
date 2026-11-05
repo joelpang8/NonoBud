@@ -19,3 +19,14 @@ describe('released puzzles never change', () => {
     expect(createHash('sha256').update(e!.rows.join('\n')).digest('hex').slice(0, 16), `${id}'s picture changed`).toBe(hash);
   });
 });
+
+describe('puzzle numbers never shift', () => {
+  it('lists every size in release order, so new puzzles only ever go at the end', () => {
+    const order = Object.keys(released);
+    for (const n of [5, 10, 15, 20, 25, 30]) {
+      const lib = entries.filter((e) => e.n === n).map((e) => e.id);
+      const rel = order.filter((id) => lib.includes(id));
+      expect(lib.slice(0, rel.length)).toEqual(rel);
+    }
+  });
+});

@@ -4,6 +4,7 @@ import type { Route } from '../hooks/useHashRoute';
 import { formatTime } from '../lib/format';
 import { PLAYER_NAMES } from '../lib/players';
 import { puzzleRoute } from '../lib/routes';
+import { puzzleNumber } from '../puzzles/library';
 
 const DATE = new Intl.DateTimeFormat(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
 
@@ -54,7 +55,8 @@ export function Gallery({ go }: { go: (r: Route) => void }) {
                 <span>
                   <b>{r.name}</b>
                   <small>
-                    {r.n}×{r.n} · {formatTime(r.seconds)} · {solvers(r.owners)}
+                    {r.n}×{r.n}
+                    {puzzleNumber(r.puzzleId) !== undefined && ` #${puzzleNumber(r.puzzleId)}`} · {formatTime(r.seconds)} · {solvers(r.owners)}
                   </small>
                   <small className="date">{DATE.format(r.solvedAt)}</small>
                 </span>

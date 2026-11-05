@@ -161,6 +161,8 @@ moves sync when you're back online.
 
 ## 6. Playing
 
+- **Numbers:** every puzzle has a number within its size section (#1, #2, …), shown on its card
+  and on the puzzle screen. Numbers never change: new puzzles are added at the end of their section.
 - **Fill:** tap a cell, or drag along a row or column. Starting a drag on a filled cell erases.
 - **Mark X:** switch the tool to **Mark X**, or right-click on a computer.
 - **Clues** fade once their row or column is right. Thicker lines every 5 cells help counting.

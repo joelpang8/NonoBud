@@ -1,6 +1,7 @@
 // Records every puzzle in src/puzzles/library.json as released, so tests stop
 // anyone (including future you) from changing a puzzle people have progress on.
-// Existing entries are never rewritten, only new ones are added.
+// Existing entries are never rewritten, only new ones are added, at the end.
+// The order here is the order puzzles appear (and are numbered) in each size.
 import { createHash } from 'node:crypto';
 import { readFileSync, writeFileSync } from 'node:fs';
 
@@ -13,6 +14,5 @@ for (const e of lib) {
   released[e.id] = createHash('sha256').update(e.rows.join('\n')).digest('hex').slice(0, 16);
   added++;
 }
-const sorted = Object.fromEntries(Object.entries(released).sort(([a], [b]) => a.localeCompare(b)));
-writeFileSync(path, JSON.stringify(sorted, null, 1) + '\n');
-console.log(`Released ${added} new puzzle(s); ${Object.keys(sorted).length} in total.`);
+writeFileSync(path, JSON.stringify(released, null, 1) + '\n');
+console.log(`Released ${added} new puzzle(s); ${Object.keys(released).length} in total.`);

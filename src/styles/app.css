@@ -158,6 +158,23 @@ h2 {
 .card:hover {
   border-color: var(--guide);
 }
+.card {
+  position: relative;
+}
+.card .num {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  min-width: 26px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--ink);
+  color: var(--paper);
+  font-size: 12px;
+  font-weight: 700;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
 .card svg {
   width: 100%;
   height: auto;

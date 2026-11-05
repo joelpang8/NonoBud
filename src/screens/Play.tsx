@@ -27,6 +27,7 @@ import { routeHash } from '../hooks/useHashRoute';
 import { puzzleRoute } from '../lib/routes';
 import { watchLive } from '../realtime';
 import { useLive } from '../realtime/LiveProvider';
+import { puzzleNumber } from '../puzzles/library';
 import { difficulty } from '../solver';
 import type { BoardDoc } from '../sync';
 import { useEngine } from '../sync/SyncProvider';
@@ -249,6 +250,7 @@ function Play({ puzzle, player, doc, onExit, onNext, onReplay, restartedElsewher
           <div className="m">
             <span>
               {puzzle.n}×{puzzle.n}
+              {puzzleNumber(puzzle.id) !== undefined && ` · #${puzzleNumber(puzzle.id)}`}
             </span>
             <span>{difficulty({ solved: puzzle.lineSolvable, passes: puzzle.passes }, puzzle.n)}</span>
           </div>
